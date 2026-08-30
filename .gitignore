@@ -34,6 +34,11 @@ outputs/alerts/*.csv
 outputs/graphs/*.html
 !outputs/**/.gitkeep
 
+# scripts/data_pipeline.py currently writes to "output/" (singular) — separate from our
+# tracked "outputs/" (plural) convention. Ignoring both until the team settles on one name;
+# see the note in README/PR about this naming mismatch.
+output/
+
 # OS / editor
 .DS_Store
 Thumbs.db

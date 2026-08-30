@@ -19,11 +19,14 @@ data/
   processed/         # Unified merged dataset output by the data pipeline (Phase 1)
 
 src/
-  data_pipeline/     # Person A — ingestion, synthetic IP/port/timestamp gen, GeoIP enrichment
   graph_ml/          # Person B — graph construction, Louvain, RandomForest, IsolationForest,
                       #   explainability, ranked risk scoring
   dashboard/          # Person C — Streamlit app, stats, alert table
   visualization/      # Person D — pyvis graph rendering, dashboard integration
+
+scripts/
+  data_pipeline.py    # Person A — ingestion, synthetic IP/port/timestamp gen, GeoIP enrichment
+                      #   (currently a first draft — see open items below)
 
 notebooks/            # scratch/exploration notebooks
 outputs/
@@ -31,6 +34,24 @@ outputs/
   alerts/             # ranked alert CSV output — gitignored
   graphs/             # exported pyvis HTML graphs — gitignored
 ```
+
+### Known open items (Phase 1 — data pipeline)
+
+`scripts/data_pipeline.py` is a first draft, not yet Phase 1-complete against the schema in
+`docs/ChainTrace_Project_Blueprint.md` Section 4d:
+
+- Missing columns: `dst_ip`/`dst_port` (only `src_ip`/`src_port` generated), wallet addresses
+  (`input_addresses[]`/`output_addresses[]` — Elliptic++ isn't read at all yet), amounts,
+  `fee`, `script_type`.
+- Synthetic IP generation is uniform-random and not yet correlated with the illicit/licit
+  label (the plan calls for weighting risky IP/ASN ranges toward illicit-labeled transactions
+  so the network↔blockchain correlation story is visible in the demo).
+- Currently expects a flat `data/` folder + GeoLite2 `.mmdb` binaries; the shared repo uses the
+  nested `data/raw/...` layout and the CSV-format GeoLite2 download — needs reconciling so
+  everyone can run it from the same checkout.
+- `src/graph_ml/data_loader.py::load_elliptic_pp_wallets()` already has working, tested
+  Elliptic++ wallet-loading logic (schema quirks handled) — worth reusing here instead of
+  writing a second implementation.
 
 ## Setup
 

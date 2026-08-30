@@ -2,16 +2,28 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
+
+# Default pipeline output locations (repo-root relative, matches scripts/data_pipeline.py's
+# and src/graph_ml/run_phase2.py's own output paths). Resolved from this file's location
+# rather than cwd, so auto-load still works regardless of where `streamlit run` is invoked from.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_TX_PATH = _REPO_ROOT / "data" / "processed" / "unified_dataset.csv"
+DEFAULT_ALERTS_PATH = _REPO_ROOT / "outputs" / "alerts" / "ranked_alerts.csv"
 
 
 def render_sidebar() -> tuple[Any, Any, bool]:
     """Render sidebar control panel and system explainer.
 
     Returns:
-        (uploaded_tx_file, uploaded_alerts_file, reset_mock_data_clicked)
+        (tx_file, alerts_file, reset_mock_data_clicked)
+
+        tx_file/alerts_file are either a path string (auto-loaded default pipeline output),
+        a Streamlit UploadedFile (manual upload), or None (nothing available — falls through
+        to mock data in data_loader.get_active_datasets).
     """
     with st.sidebar:
         st.markdown(
@@ -25,19 +37,33 @@ def render_sidebar() -> tuple[Any, Any, bool]:
         )
 
         st.markdown("### 📁 Data Ingestion Pipeline")
-        st.caption("Upload pipeline outputs or run offline mock data mode.")
 
-        tx_file = st.file_uploader(
-            "Transaction Stream (CSV/JSON)",
-            type=["csv", "json"],
-            help="Merged Elliptic dataset + synthetic network metadata (IP, port, geo, ASN)",
-        )
+        auto_load_ready = DEFAULT_TX_PATH.exists() and DEFAULT_ALERTS_PATH.exists()
 
-        alerts_file = st.file_uploader(
-            "ML Pipeline Output (CSV/JSON)",
-            type=["csv", "json"],
-            help="Ranked alerts dataframe output by Phase 2 graph + ML scoring model",
-        )
+        if auto_load_ready:
+            # Both pipeline outputs already sit on disk (run_all.sh/.bat, or the pipelines run
+            # manually) — load them straight away, no upload click needed.
+            st.success("✅ Pipeline outputs found on disk — auto-loaded, no upload needed.")
+            st.caption(f"Transactions: `{DEFAULT_TX_PATH.relative_to(_REPO_ROOT)}`")
+            st.caption(f"Alerts: `{DEFAULT_ALERTS_PATH.relative_to(_REPO_ROOT)}`")
+            tx_file: Any = str(DEFAULT_TX_PATH)
+            alerts_file: Any = str(DEFAULT_ALERTS_PATH)
+        else:
+            # One or both pipeline outputs are missing (dashboard-only development, or the
+            # pipelines haven't been run yet) — fall back to manual upload exactly as before.
+            st.caption("Upload pipeline outputs or run offline mock data mode.")
+
+            tx_file = st.file_uploader(
+                "Transaction Stream (CSV/JSON)",
+                type=["csv", "json"],
+                help="Merged Elliptic dataset + synthetic network metadata (IP, port, geo, ASN)",
+            )
+
+            alerts_file = st.file_uploader(
+                "ML Pipeline Output (CSV/JSON)",
+                type=["csv", "json"],
+                help="Ranked alerts dataframe output by Phase 2 graph + ML scoring model",
+            )
 
         reset_clicked = st.button("🔄 Reset to Realistic Mock Data", use_container_width=True)
 

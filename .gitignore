@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Env / secrets
+.env
+*.license
+geolite2_license_key.txt
+
+# Raw & processed data (too large / regenerable, don't commit)
+# NOTE: "data/raw/**" would exclude the subdirectories themselves, and git can't re-include
+# a file whose parent directory is excluded — so these are scoped to direct children only.
+data/raw/elliptic/*
+data/raw/elliptic_pp/*
+data/raw/geolite2/*
+data/processed/*
+!data/raw/elliptic/.gitkeep
+!data/raw/elliptic_pp/.gitkeep
+!data/raw/geolite2/.gitkeep
+!data/processed/.gitkeep
+
+# GeoLite2 databases/CSVs specifically (license restricts redistribution)
+*.mmdb
+GeoLite2-*.csv
+GeoLite2-*.zip
+
+# Model + output artifacts (regenerable from pipeline)
+outputs/models/*.pkl
+outputs/models/*.joblib
+outputs/alerts/*.csv
+outputs/graphs/*.html
+!outputs/**/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local tool artifacts (Claude Code, etc.) — machine-local, not project state
+.claude/
+
+# Streamlit
+.streamlit/secrets.toml

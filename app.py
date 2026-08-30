@@ -65,7 +65,7 @@ def main() -> None:
             selected_entity = selected_from_table
 
     with tab_graph:
-        render_graph_section(selected_entity=selected_entity)
+        render_graph_section(selected_entity=selected_entity, alerts_df=alerts_df, tx_df=tx_df)
 
     with tab_geo:
         render_geo_overlay(alerts_df=alerts_df, tx_df=tx_df)

@@ -1,0 +1,4 @@
+# Force LF line endings for shell scripts regardless of platform/git config — a CRLF shell
+# script fails with "bad interpreter" on Linux/macOS. .bat files keep native CRLF for Windows.
+*.sh text eol=lf
+*.bat text eol=crlf

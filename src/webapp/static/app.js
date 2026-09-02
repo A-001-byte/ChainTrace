@@ -23,6 +23,16 @@ function riskTierClass(score) {
   return "risk-low";
 }
 
+// Distinct pill color per archetype label so "Pattern unclear"/"Insufficient signal"
+// visually read as different from a confident archetype match, not just different text.
+const INTENT_PILL_CLASS = {
+  "Ransomware-shaped": "intent-ransomware",
+  "Darknet-market-shaped": "intent-darknet",
+  "Sanctions-evasion-shaped": "intent-sanctions",
+  "Pattern unclear": "intent-unclear",
+  "Insufficient signal": "intent-insufficient",
+};
+
 function shortenId(id, maxLen = 34) {
   if (!id) return "";
   return id.length > maxLen ? `${id.slice(0, maxLen)}…` : id;
@@ -104,7 +114,7 @@ async function loadAlerts() {
   } catch (err) {
     showError("alerts-error", `Could not load alerts: ${err.message}`);
     document.getElementById("alerts-tbody").innerHTML =
-      '<tr><td colspan="6" class="empty-row">No alert data available.</td></tr>';
+      '<tr><td colspan="7" class="empty-row">No alert data available.</td></tr>';
   }
 }
 
@@ -128,7 +138,7 @@ function renderAlertsTable() {
   const tbody = document.getElementById("alerts-tbody");
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No alerts match the current filter.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No alerts match the current filter.</td></tr>';
     return;
   }
 
@@ -143,9 +153,25 @@ function renderAlertsTable() {
         <td class="mono">${escapeHtml(row.cluster_id ?? "—")}</td>
         <td><span class="risk-pill ${riskTierClass(risk)}">${risk.toFixed(4)}</span></td>
         <td class="reason-cell">${escapeHtml(row.reason || "")}</td>
+        <td class="intent-cell">${renderIntentCell(row)}</td>
       </tr>`;
     })
     .join("");
+}
+
+function renderIntentCell(row) {
+  // intent_label is only present once src/graph_ml/intent_classifier.py has run — an
+  // older ranked_alerts.csv won't have it, so degrade to a plain dash rather than
+  // showing "undefined".
+  if (!row.intent_label) return "—";
+  const pillClass = INTENT_PILL_CLASS[row.intent_label] || "intent-unclear";
+  const confidence = typeof row.intent_confidence === "number" ? row.intent_confidence.toFixed(2) : "—";
+  const explanation = row.intent_explanation || "";
+  return `
+    <span class="intent-pill ${pillClass}" title="${escapeHtml(explanation)}">${escapeHtml(row.intent_label)}</span>
+    <div class="intent-confidence">conf ${confidence}</div>
+    ${explanation ? `<div class="intent-explanation">${escapeHtml(explanation)}</div>` : ""}
+  `;
 }
 
 function wireAlertControls() {
@@ -171,7 +197,7 @@ function wireAlertControls() {
   // the other columns are text, sorting by them client-side is available via the
   // dropdown-driven fields above which cover the numeric metrics investigators care about).
   document.querySelectorAll("#alerts-table thead th").forEach((th, index) => {
-    const sortableFields = ["node_id", null, "label", "cluster_id", "risk_score", null];
+    const sortableFields = ["node_id", null, "label", "cluster_id", "risk_score", null, null];
     const field = sortableFields[index];
     if (!field) return;
     th.addEventListener("click", () => {

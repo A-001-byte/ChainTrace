@@ -272,6 +272,50 @@ tbody tr:last-child td { border-bottom: none; }
   letter-spacing: 0.04em;
 }
 
+/* ---------- Intent pattern (src/graph_ml/intent_classifier.py) ---------- */
+
+.th-hint {
+  cursor: help;
+  color: var(--text-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.intent-cell { max-width: 260px; }
+
+.intent-pill {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Distinct colors per archetype so a confident match reads differently at a glance from
+   the two honest fallback categories — an entity correctly landing in "Pattern unclear"
+   should never look like a matching error. */
+.intent-ransomware { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+.intent-darknet { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+.intent-sanctions { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.intent-unclear { background: rgba(148, 163, 184, 0.14); color: var(--text-secondary); }
+.intent-insufficient { background: rgba(91, 107, 133, 0.14); color: var(--text-muted); }
+
+.intent-confidence {
+  margin-top: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.intent-explanation {
+  margin-top: 0.2rem;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  max-width: 240px;
+}
+
 .loading-row, .empty-row {
   text-align: center;
   color: var(--text-muted);

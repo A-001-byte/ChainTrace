@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
+from pathlib import Path
 
 import pandas as pd
 
-from . import config, pipeline
+from . import config, intent_classifier, pipeline
 
 
 def main() -> None:
@@ -32,18 +34,39 @@ def main() -> None:
         action="store_true",
         help="Also write the full ranked alert list to outputs/alerts/ranked_alerts.csv",
     )
+    parser.add_argument(
+        "--skip-intent",
+        action="store_true",
+        help="Skip intent-archetype classification (runs by default after alerts are built).",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logger = logging.getLogger(__name__)
 
     graph, alerts = pipeline.run(sample_timesteps=args.sample_timesteps, top_n=args.top_n)
+
+    if not args.skip_intent:
+        # Called after alerts already exist, purely additive — see intent_classifier.py's
+        # module docstring for why this is a rule-based matcher, not a trained classifier.
+        t0 = time.time()
+        unified_dataset_path = Path("data/processed/unified_dataset.csv")
+        tx_df = pd.read_csv(unified_dataset_path) if unified_dataset_path.exists() else None
+        if tx_df is None:
+            logger.warning(
+                "data/processed/unified_dataset.csv not found — intent timing signal will "
+                "report 'insufficient signal' for every entity rather than a faked substitute."
+            )
+        alerts = intent_classifier.classify_intents(graph, alerts, tx_df)
+        logger.info("Intent classification added %.1fs on top of the pipeline run", time.time() - t0)
 
     pd.set_option("display.max_colwidth", 80)
     pd.set_option("display.width", 200)
     print("\n=== ChainTrace — Top ranked alerts ===")
-    print(
-        alerts[["node_id", "node_type", "label", "cluster_id", "risk_score", "reason"]].to_string(index=False)
-    )
+    display_cols = ["node_id", "node_type", "label", "cluster_id", "risk_score", "reason"]
+    if not args.skip_intent:
+        display_cols += ["intent_label", "intent_confidence"]
+    print(alerts[display_cols].to_string(index=False))
 
     if args.save:
         config.ALERTS_DIR.mkdir(parents=True, exist_ok=True)

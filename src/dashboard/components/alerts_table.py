@@ -71,19 +71,26 @@ def render_alerts_table(alerts_df: pd.DataFrame, tx_df: pd.DataFrame) -> str | N
         st.warning("No leads match the selected filter criteria.")
         return None
 
+    # intent_label/intent_confidence come from the optional intent_classifier post-process
+    # step (src/graph_ml/intent_classifier.py) — older ranked_alerts.csv files won't have
+    # them, so only show the column when it's actually present rather than crashing or
+    # showing a column of blanks.
+    has_intent = "intent_label" in filtered_df.columns
+
     # Table Display Prep
-    display_df = filtered_df[
-        [
-            "node_id",
-            "node_type",
-            "risk_score",
-            "classifier_confidence",
-            "anomaly_score",
-            "cluster_id",
-            "reason",
-            "geo_country",
-        ]
-    ].copy()
+    display_cols = [
+        "node_id",
+        "node_type",
+        "risk_score",
+        "classifier_confidence",
+        "anomaly_score",
+        "cluster_id",
+        "reason",
+        "geo_country",
+    ]
+    if has_intent:
+        display_cols.insert(6, "intent_label")  # next to "reason", same explainability spirit
+    display_df = filtered_df[display_cols].copy()
 
     # Column formatting for st.dataframe
     column_config = {
@@ -103,6 +110,16 @@ def render_alerts_table(alerts_df: pd.DataFrame, tx_df: pd.DataFrame) -> str | N
         "reason": st.column_config.TextColumn("Why Flagged (Feature Importances)", width="large"),
         "geo_country": st.column_config.TextColumn("Country", width="small"),
     }
+    if has_intent:
+        column_config["intent_label"] = st.column_config.TextColumn(
+            "Intent Pattern",
+            help=(
+                "Rule-based structural pattern match (fan-in/out shape, timing burst, hop "
+                "depth) against named crime-archetype signatures — NOT a classifier trained "
+                "on crime-type labels (no such ground truth exists in Elliptic/Elliptic++)."
+            ),
+            width="medium",
+        )
 
     # Selection mode
     event = st.dataframe(
@@ -204,6 +221,20 @@ def render_entity_drilldown(entity_id: str, alerts_df: pd.DataFrame, tx_df: pd.D
         for r in reasons:
             if r.strip():
                 st.markdown(f"- ⚠️ {r.strip()}")
+
+        if "intent_label" in row.index and pd.notna(row.get("intent_label")):
+            st.markdown("---")
+            st.markdown(
+                f"**Intent pattern:** `{row['intent_label']}` "
+                f"(confidence {float(row.get('intent_confidence', 0)):.2f})"
+            )
+            st.caption(
+                "Rule-based structural match, not a trained crime-type classifier — "
+                "Elliptic/Elliptic++ has no ground-truth crime-type labels."
+            )
+            explanation = str(row.get("intent_explanation", "")).strip()
+            if explanation:
+                st.markdown(f"*{explanation}*")
 
     # Find associated transactions in tx_df
     st.markdown("#### 🔗 Linked Blockchain Transactions")

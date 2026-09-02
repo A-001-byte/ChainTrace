@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChainTrace — Forensic Lead Detection</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="hero-title-row">
+        <h1><span class="accent">Chain</span>Trace</h1>
+        <span class="badge badge-cyan">SIH26146 Prototype</span>
+        <span class="badge badge-green">100% Offline</span>
+        <span class="badge badge-amber">NTRO</span>
+      </div>
+      <p class="hero-subtitle">
+        Offline Bitcoin Forensic Lead Detection — fusing network-layer and blockchain-layer
+        signals into ranked, explainable investigative leads.
+      </p>
+    </div>
+  </header>
+
+  <main>
+
+    <section id="stats-section" class="section">
+      <h2 class="section-title">Overview</h2>
+      <div id="stats-cards" class="stats-grid">
+        <div class="stat-card skeleton"><div class="stat-label">Total Flagged</div><div class="stat-value">—</div></div>
+        <div class="stat-card skeleton"><div class="stat-label">Avg Risk Score</div><div class="stat-value">—</div></div>
+        <div class="stat-card skeleton"><div class="stat-label">High Risk</div><div class="stat-value">—</div></div>
+        <div class="stat-card skeleton"><div class="stat-label">Wallets vs Tx</div><div class="stat-value">—</div></div>
+      </div>
+      <p id="stats-error" class="error-banner" hidden></p>
+    </section>
+
+    <section id="alerts-section" class="section">
+      <div class="section-header-row">
+        <h2 class="section-title">Ranked Alert Leads</h2>
+        <div class="controls">
+          <label class="control">
+            Node type
+            <select id="filter-node-type">
+              <option value="">All</option>
+              <option value="wallet">Wallet</option>
+              <option value="tx">Transaction</option>
+            </select>
+          </label>
+          <label class="control">
+            Sort by
+            <select id="sort-field">
+              <option value="risk_score">Risk score</option>
+              <option value="classifier_confidence">Classifier confidence</option>
+              <option value="anomaly_score">Anomaly score</option>
+            </select>
+          </label>
+          <button id="sort-direction" class="btn-ghost" data-dir="desc" title="Toggle sort direction">▼ Desc</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="alerts-table">
+          <thead>
+            <tr>
+              <th>Node ID</th>
+              <th>Type</th>
+              <th>Label</th>
+              <th>Cluster</th>
+              <th>Risk Score</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="alerts-tbody">
+            <tr><td colspan="6" class="loading-row">Loading alerts…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p id="alerts-error" class="error-banner" hidden></p>
+    </section>
+
+    <section id="graph-section" class="section">
+      <h2 class="section-title">Entity-Transaction Graph</h2>
+      <p class="section-caption">Interactive link-analysis view — flagged wallets, transactions, and their cluster membership.</p>
+      <div class="graph-frame-wrap">
+        <iframe id="graph-frame" src="/api/graph" title="Entity-transaction graph" loading="lazy"></iframe>
+      </div>
+    </section>
+
+    <section id="geo-section" class="section">
+      <h2 class="section-title">Geo &amp; ASN Overlay</h2>
+      <p class="section-caption">Distribution of synthetic network-layer IPs, resolved through real GeoLite2 data.</p>
+      <div class="geo-grid">
+        <div class="geo-panel">
+          <h3>By Country</h3>
+          <div id="geo-country-bars" class="bar-list"><p class="loading-row">Loading…</p></div>
+        </div>
+        <div class="geo-panel">
+          <h3>By ASN</h3>
+          <div id="geo-asn-bars" class="bar-list"><p class="loading-row">Loading…</p></div>
+        </div>
+      </div>
+      <p id="geo-error" class="error-banner" hidden></p>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>ChainTrace — offline forensic lead detection. Alternative view of the same pipeline output as the Streamlit dashboard.</p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

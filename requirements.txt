@@ -4,6 +4,7 @@ networkx>=3.2
 scikit-learn>=1.4
 scipy>=1.11
 streamlit>=1.35
+flask>=3.0
 pyvis>=0.3.2
 geoip2>=4.8
 requests>=2.31.0

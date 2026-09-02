@@ -115,6 +115,101 @@ def _build_graph_from_data(alerts_df: pd.DataFrame | None, tx_df: pd.DataFrame |
     return nodes, edges
 
 
+def _read_pregenerated_graph_html(html_path: str) -> str | None:
+    """Return the contents of a pre-rendered graph HTML file, or None if it doesn't exist."""
+    if not os.path.exists(html_path):
+        return None
+    with open(html_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def _build_pyvis_graph_html(
+    alerts_df: pd.DataFrame | None,
+    tx_df: pd.DataFrame | None,
+    selected_entity: str | None,
+) -> str:
+    """Build the interactive pyvis graph from alerts/tx data and return its HTML."""
+    from pyvis.network import Network
+
+    nodes, edges = _build_graph_from_data(alerts_df, tx_df, selected_entity)
+
+    net = Network(height="700px", width="100%", bgcolor="#111827", font_color="#f8fafc", directed=True)
+    net.barnes_hut()
+    net.set_options(
+        """
+        {
+          "physics": {
+            "enabled": true,
+            "barnesHut": {
+              "gravitationalConstant": -8000,
+              "springLength": 200,
+              "springConstant": 0.03
+            }
+          },
+          "interaction": {
+            "hover": true,
+            "navigationButtons": true,
+            "keyboard": true
+          }
+        }
+        """
+    )
+
+    if not nodes:
+        nodes = [
+            {"id": "wallet_0003", "type": "wallet", "risk": 0.92, "title": "High-risk wallet", "color": "#ef4444"},
+            {"id": "wallet_0015", "type": "wallet", "risk": 0.74, "title": "Suspicious intermediary", "color": "#f59e0b"},
+            {"id": "tx_9012", "type": "tx", "risk": 0.66, "title": "Transaction node", "color": "#00e5ff"},
+            {"id": "AS14061", "type": "asn", "risk": 0.82, "title": "Risky hosting provider", "color": "#ef4444"},
+        ]
+        edges = [("wallet_0003", "tx_9012", "fund flow"), ("wallet_0015", "tx_9012", "transaction"), ("wallet_0003", "AS14061", "risky ASN")]
+
+    for node in nodes:
+        node_id = str(node["id"])
+        is_focus = bool(selected_entity and (selected_entity in node_id or node_id in str(selected_entity)))
+        border_color = "#ffffff" if is_focus else str(node["color"])
+        border_width = 4 if is_focus else 1
+        size = 18 + (float(node["risk"]) * 22)
+        label = node_id[:12] + "..." if len(node_id) > 12 else node_id
+        title = f"{node['title']}\nRisk: {float(node['risk']):.2f}\nType: {node['type']}"
+
+        net.add_node(
+            node_id,
+            label=label,
+            title=title,
+            color={"background": str(node["color"]), "border": border_color},
+            borderWidth=border_width,
+            size=size,
+        )
+
+    for src, dst, label in edges:
+        if str(src) and str(dst):
+            net.add_edge(str(src), str(dst), title=str(label), color="#94a3b8", width=2)
+
+    return net.generate_html()
+
+
+def build_graph_html(
+    alerts_df: pd.DataFrame | None = None,
+    tx_df: pd.DataFrame | None = None,
+    selected_entity: str | None = None,
+    html_path: str = "outputs/graphs/cluster_graph.html",
+) -> str:
+    """Build the graph's HTML: a pre-rendered file at html_path wins if present, else build
+    it from alerts_df/tx_df via pyvis.
+
+    Pure function, no Streamlit dependency — this is the single source of truth for graph
+    rendering, shared by render_graph_section() (Streamlit dashboard) and src/webapp's
+    /api/graph endpoint, so both surfaces render the identical graph from identical logic.
+    May raise; callers decide how to present a failure (see render_graph_section below for
+    the Streamlit-specific fallback UI).
+    """
+    pregenerated = _read_pregenerated_graph_html(html_path)
+    if pregenerated is not None:
+        return pregenerated
+    return _build_pyvis_graph_html(alerts_df, tx_df, selected_entity)
+
+
 def render_graph_section(
     selected_entity: str | None = None,
     alerts_df: pd.DataFrame | None = None,
@@ -129,74 +224,16 @@ def render_graph_section(
     else:
         st.caption("Select an entity from the Alert Table above or click nodes below to inspect link analysis.")
 
-    if os.path.exists(html_path):
-        try:
-            with open(html_path, "r", encoding="utf-8") as f:
-                html_content = f.read()
-            components.html(html_content, height=700, scrolling=True)
+    try:
+        pregenerated = _read_pregenerated_graph_html(html_path)
+        if pregenerated is not None:
+            components.html(pregenerated, height=700, scrolling=True)
             return
-        except Exception as e:
-            st.warning(f"Could not load local graph HTML file ({e}). Displaying fallback graph.")
+    except Exception as e:
+        st.warning(f"Could not load local graph HTML file ({e}). Displaying fallback graph.")
 
     try:
-        from pyvis.network import Network
-
-        nodes, edges = _build_graph_from_data(alerts_df, tx_df, selected_entity)
-
-        net = Network(height="700px", width="100%", bgcolor="#111827", font_color="#f8fafc", directed=True)
-        net.barnes_hut()
-        net.set_options(
-            """
-            {
-              "physics": {
-                "enabled": true,
-                "barnesHut": {
-                  "gravitationalConstant": -8000,
-                  "springLength": 200,
-                  "springConstant": 0.03
-                }
-              },
-              "interaction": {
-                "hover": true,
-                "navigationButtons": true,
-                "keyboard": true
-              }
-            }
-            """
-        )
-
-        if not nodes:
-            nodes = [
-                {"id": "wallet_0003", "type": "wallet", "risk": 0.92, "title": "High-risk wallet", "color": "#ef4444"},
-                {"id": "wallet_0015", "type": "wallet", "risk": 0.74, "title": "Suspicious intermediary", "color": "#f59e0b"},
-                {"id": "tx_9012", "type": "tx", "risk": 0.66, "title": "Transaction node", "color": "#00e5ff"},
-                {"id": "AS14061", "type": "asn", "risk": 0.82, "title": "Risky hosting provider", "color": "#ef4444"},
-            ]
-            edges = [("wallet_0003", "tx_9012", "fund flow"), ("wallet_0015", "tx_9012", "transaction"), ("wallet_0003", "AS14061", "risky ASN")]
-
-        for node in nodes:
-            node_id = str(node["id"])
-            is_focus = bool(selected_entity and (selected_entity in node_id or node_id in str(selected_entity)))
-            border_color = "#ffffff" if is_focus else str(node["color"])
-            border_width = 4 if is_focus else 1
-            size = 18 + (float(node["risk"]) * 22)
-            label = node_id[:12] + "..." if len(node_id) > 12 else node_id
-            title = f"{node['title']}\nRisk: {float(node['risk']):.2f}\nType: {node['type']}"
-
-            net.add_node(
-                node_id,
-                label=label,
-                title=title,
-                color={"background": str(node["color"]), "border": border_color},
-                borderWidth=border_width,
-                size=size,
-            )
-
-        for src, dst, label in edges:
-            if str(src) and str(dst):
-                net.add_edge(str(src), str(dst), title=str(label), color="#94a3b8", width=2)
-
-        html_code = net.generate_html()
+        html_code = _build_pyvis_graph_html(alerts_df, tx_df, selected_entity)
         components.html(html_code, height=700, scrolling=True)
 
     except Exception as err:

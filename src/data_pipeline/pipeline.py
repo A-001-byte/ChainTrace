@@ -14,6 +14,21 @@ from src.graph_ml.data_loader import load_elliptic_pp_wallets, load_elliptic_tra
 
 from . import config, geo_lookup, network_synth
 
+# Contract A: the 9 blockchain-layer columns this module owns. Exact names and order —
+# Ujjwal's network layer (src_ip, dst_ip, src_port, dst_port, geo_country, asn) attaches
+# on top of this in attach_network_layer(), never inside build_blockchain_dataset().
+BLOCKCHAIN_COLUMNS = [
+    "txid",
+    "timestamp",
+    "input_addresses",
+    "output_addresses",
+    "input_amounts",
+    "output_amounts",
+    "fee",
+    "script_type",
+    "label",
+]
+
 
 def _addresses_and_amounts_per_tx(nodes: pd.DataFrame, wallets: pd.DataFrame, addr_tx_edges: pd.DataFrame,
                                    tx_addr_edges: pd.DataFrame):
@@ -61,8 +76,16 @@ def _addresses_and_amounts_per_tx(nodes: pd.DataFrame, wallets: pd.DataFrame, ad
     return result
 
 
-def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
-    rng = np.random.default_rng(config.RANDOM_STATE)
+def build_blockchain_dataset(
+    sample_timesteps: int | None = None, rng: np.random.Generator | None = None
+) -> pd.DataFrame:
+    """Contract A: build strictly the 9 blockchain-layer columns this module owns.
+
+    No network/geo columns here — that's attach_network_layer()'s job, so Ujjwal's
+    Sprint 2 network work has a clean, stable boundary to plug into.
+    """
+    if rng is None:
+        rng = np.random.default_rng(config.RANDOM_STATE)
 
     print("Loading real Elliptic transactions...")
     nodes, edges = load_elliptic_transactions(sample_timesteps=sample_timesteps)
@@ -80,45 +103,69 @@ def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
     n_with_inputs = addr_amount_df["input_addresses"].apply(len).gt(0).sum()
     print(f"{n_with_inputs}/{n} transactions have at least one matched input address")
 
-    print("\nLoading real risky/residential ASN CIDR pools from GeoLite2-ASN-Blocks-IPv4.csv...")
-    risky_pool = network_synth.load_asn_ip_pool(config.RISKY_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
-    residential_pool = network_synth.load_asn_ip_pool(config.RESIDENTIAL_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
-    print(f"Risky pool: {len(risky_pool)} CIDR blocks across {len(config.RISKY_ASNS)} ASNs")
-    print(f"Residential pool: {len(residential_pool)} CIDR blocks across {len(config.RESIDENTIAL_ASNS)} ASNs")
-
-    print("\nGenerating synthetic network layer (label-correlated IP/port, timestamp)...")
-    labels = nodes["class"].tolist()
-    src_ips = [network_synth.generate_ip(label, rng, risky_pool, residential_pool) for label in labels]
-    dst_ips = [network_synth.generate_ip(label, rng, risky_pool, residential_pool) for label in labels]
-    src_ports = network_synth.generate_ports(n, rng)
-    dst_ports = network_synth.generate_ports(n, rng)
     timestamps = [network_synth.generate_timestamp(ts, rng) for ts in nodes["time_step"]]
     script_types = network_synth.generate_script_types(n, rng)
-
-    print("\nResolving src_ip against real GeoLite2 CSV data (country + ASN)...")
-    geo_index = geo_lookup.build_geo_index()
-    geo_countries, asns = geo_lookup.resolve_geo_batch(src_ips, geo_index)
 
     df = pd.DataFrame(
         {
             "txid": nodes["txId"],
             "timestamp": timestamps,
-            "src_ip": src_ips,
-            "dst_ip": dst_ips,
-            "src_port": src_ports,
-            "dst_port": dst_ports,
             "input_addresses": addr_amount_df["input_addresses"].tolist(),
             "output_addresses": addr_amount_df["output_addresses"].tolist(),
             "input_amounts": addr_amount_df["input_amounts"].tolist(),
             "output_amounts": addr_amount_df["output_amounts"].tolist(),
             "fee": addr_amount_df["fee"].tolist(),
             "script_type": script_types,
-            "geo_country": geo_countries,
-            "asn": asns,
             "label": nodes["class"].map(config.LABEL_TO_NUMERIC).tolist(),
         }
     )
+    return df[BLOCKCHAIN_COLUMNS]
+
+
+def attach_network_layer(blockchain_df: pd.DataFrame, rng: np.random.Generator | None = None) -> pd.DataFrame:
+    """Ujjwal's Sprint 2 boundary: attach src_ip/dst_ip/src_port/dst_port/geo_country/asn
+    to a Contract A blockchain DataFrame, keyed off each row's label for the risky-vs-
+    residential ASN weighting.
+    """
+    if rng is None:
+        rng = np.random.default_rng(config.RANDOM_STATE)
+
+    n = len(blockchain_df)
+    labels = blockchain_df["label"].map(config.NUMERIC_TO_LABEL).tolist()
+
+    print("\nLoading real risky/residential ASN CIDR pools from GeoLite2-ASN-Blocks-IPv4.csv...")
+    risky_pool = network_synth.load_asn_ip_pool(config.RISKY_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
+    residential_pool = network_synth.load_asn_ip_pool(config.RESIDENTIAL_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
+    print(f"Risky pool: {len(risky_pool)} CIDR blocks across {len(config.RISKY_ASNS)} ASNs")
+    print(f"Residential pool: {len(residential_pool)} CIDR blocks across {len(config.RESIDENTIAL_ASNS)} ASNs")
+
+    print("\nGenerating synthetic network layer (label-correlated IP/port)...")
+    src_ips = [network_synth.generate_ip(label, rng, risky_pool, residential_pool) for label in labels]
+    dst_ips = [network_synth.generate_ip(label, rng, risky_pool, residential_pool) for label in labels]
+    src_ports = network_synth.generate_ports(n, rng)
+    dst_ports = network_synth.generate_ports(n, rng)
+
+    print("\nResolving src_ip against real GeoLite2 CSV data (country + ASN)...")
+    geo_index = geo_lookup.build_geo_index()
+    geo_countries, asns = geo_lookup.resolve_geo_batch(src_ips, geo_index)
+
+    df = blockchain_df.copy()
+    df["src_ip"] = src_ips
+    df["dst_ip"] = dst_ips
+    df["src_port"] = src_ports
+    df["dst_port"] = dst_ports
+    df["geo_country"] = geo_countries
+    df["asn"] = asns
     return df
+
+
+def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
+    """Full demo pipeline: Contract A blockchain columns + Ujjwal's network layer,
+    sharing one seeded rng so the whole run stays deterministic end to end.
+    """
+    rng = np.random.default_rng(config.RANDOM_STATE)
+    blockchain_df = build_blockchain_dataset(sample_timesteps=sample_timesteps, rng=rng)
+    return attach_network_layer(blockchain_df, rng=rng)
 
 
 def main(sample_timesteps: int | None = None):

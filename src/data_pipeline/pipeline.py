@@ -80,44 +80,26 @@ def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
     n_with_inputs = addr_amount_df["input_addresses"].apply(len).gt(0).sum()
     print(f"{n_with_inputs}/{n} transactions have at least one matched input address")
 
-    print("\nLoading real risky/residential ASN CIDR pools from GeoLite2-ASN-Blocks-IPv4.csv...")
-    risky_pool = network_synth.load_asn_ip_pool(config.RISKY_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
-    residential_pool = network_synth.load_asn_ip_pool(config.RESIDENTIAL_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
-    print(f"Risky pool: {len(risky_pool)} CIDR blocks across {len(config.RISKY_ASNS)} ASNs")
-    print(f"Residential pool: {len(residential_pool)} CIDR blocks across {len(config.RESIDENTIAL_ASNS)} ASNs")
-
-    print("\nGenerating synthetic network layer (label-correlated IP/port, timestamp)...")
-    labels = nodes["class"].tolist()
-    src_ips = [network_synth.generate_ip(label, rng, risky_pool, residential_pool) for label in labels]
-    dst_ips = [network_synth.generate_ip(label, rng, risky_pool, residential_pool) for label in labels]
-    src_ports = network_synth.generate_ports(n, rng)
-    dst_ports = network_synth.generate_ports(n, rng)
     timestamps = [network_synth.generate_timestamp(ts, rng) for ts in nodes["time_step"]]
     script_types = network_synth.generate_script_types(n, rng)
-
-    print("\nResolving src_ip against real GeoLite2 CSV data (country + ASN)...")
-    geo_index = geo_lookup.build_geo_index()
-    geo_countries, asns = geo_lookup.resolve_geo_batch(src_ips, geo_index)
 
     df = pd.DataFrame(
         {
             "txid": nodes["txId"],
             "timestamp": timestamps,
-            "src_ip": src_ips,
-            "dst_ip": dst_ips,
-            "src_port": src_ports,
-            "dst_port": dst_ports,
             "input_addresses": addr_amount_df["input_addresses"].tolist(),
             "output_addresses": addr_amount_df["output_addresses"].tolist(),
             "input_amounts": addr_amount_df["input_amounts"].tolist(),
             "output_amounts": addr_amount_df["output_amounts"].tolist(),
             "fee": addr_amount_df["fee"].tolist(),
             "script_type": script_types,
-            "geo_country": geo_countries,
-            "asn": asns,
             "label": nodes["class"].map(config.LABEL_TO_NUMERIC).tolist(),
         }
     )
+
+    print("\nAttaching network layer (IPs, ports, GeoLite2 country/ASN, VPN Catcher ground truth)...")
+    df = network_synth.attach_network_layer(df, rng=rng)
+
     return df
 
 

@@ -68,3 +68,22 @@ TIME_STEP_DAYS = 14
 # Task schema requires numeric labels: 0=licit, 1=illicit, -1=unknown (graph_ml's internal
 # string labels are illicit/licit/unknown — converted only at final export).
 LABEL_TO_NUMERIC = {"illicit": 1, "licit": 0, "unknown": -1}
+
+# Standard UTC hour offsets for major ISO country codes in GeoLite2 CSV dataset
+COUNTRY_UTC_OFFSET = {
+    "US": -5,   # EST / central standard fallback
+    "CA": -5,
+    "GB": 0,
+    "FR": 1,
+    "DE": 1,
+    "IT": 1,
+    "NL": 1,
+    "RO": 2,
+    "EG": 2,
+    "RU": 3,
+    "CN": 8,
+    "SG": 8,
+    "JP": 9,
+    "AU": 10,
+}
+

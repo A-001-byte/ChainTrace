@@ -7,8 +7,12 @@ import pytest
 
 from src.data_pipeline import config, network_synth
 
-
+@pytest.mark.skipif(
+    not config.GEOLITE_ASN_BLOCKS_CSV.exists(),
+    reason="Requires raw GeoLite2 ASN blocks CSV file in data/raw/geolite2/",
+)
 def test_attach_network_layer_and_geo_temporal_evasion(tmp_path):
+
     rng = np.random.default_rng(config.RANDOM_STATE)
     ground_truth_csv = tmp_path / "geo_ground_truth.csv"
 

@@ -1,4 +1,5 @@
 import { useEntity } from "../../hooks/useEntity";
+import { useKickDownDoors } from "../../hooks/useKickDownDoors";
 import RiskPill from "../shared/RiskPill";
 
 function Field({ label, value }) {
@@ -28,6 +29,7 @@ function SectionTitle({ children }) {
 
 export default function EntityDetailDrawer({ nodeId, onClose }) {
   const { data, error, loading } = useEntity(nodeId);
+  const { data: kddData, error: kddError, loading: kddLoading } = useKickDownDoors(nodeId);
 
   if (!nodeId) return null;
 
@@ -139,6 +141,57 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
                   </div>
                 ))}
               </div>
+            )}
+
+            <SectionTitle>💥 Kick Down Doors — Local Disruption Analysis</SectionTitle>
+            {kddLoading && <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Analyzing local neighborhood…</p>}
+
+            {kddError && (
+              <div style={{ color: "var(--warning)", fontSize: "0.85rem" }}>
+                Kick Down Doors analysis unavailable: {kddError}
+              </div>
+            )}
+
+            {kddData && (
+              kddData.results.length === 0 ? (
+                <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                  No structural articulation points found in this entity's immediate neighborhood.
+                </p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", fontSize: "0.75rem", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ color: "var(--text-muted)", textAlign: "left" }}>
+                        <th style={{ padding: "0.3rem 0.4rem 0.3rem 0", fontWeight: 500 }}>Node</th>
+                        <th style={{ padding: "0.3rem 0.4rem", fontWeight: 500 }}>Type</th>
+                        <th style={{ padding: "0.3rem 0.4rem", fontWeight: 500 }}>Impact</th>
+                        <th style={{ padding: "0.3rem 0.4rem", fontWeight: 500 }}>Bridge?</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kddData.results.map((n) => (
+                        <tr key={n.node_id} style={{ borderTop: "1px solid var(--border-color)" }}>
+                          <td style={{ padding: "0.4rem 0.4rem 0.4rem 0", fontFamily: "var(--font-mono)", color: "var(--text-primary)", wordBreak: "break-all" }}>
+                            {n.node_id}
+                          </td>
+                          <td style={{ padding: "0.4rem", color: "var(--text-secondary)" }}>{n.node_type}</td>
+                          <td style={{ padding: "0.4rem", color: "var(--text-secondary)" }}>{n.impact_score.toFixed(3)}</td>
+                          <td style={{ padding: "0.4rem" }}>
+                            {n.is_articulation_point ? (
+                              <span style={{ color: "var(--warning)", fontWeight: 600 }}>Yes</span>
+                            ) : (
+                              <span style={{ color: "var(--text-muted)" }}>No</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.5rem", lineHeight: 1.4 }}>
+                    {kddData.results[0]?.reason}
+                  </p>
+                </div>
+              )
             )}
           </>
         )}

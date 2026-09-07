@@ -31,14 +31,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import networkx as nx
 import pandas as pd
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, redirect, request, send_from_directory
 
 from src.dashboard.components.alerts_table import find_linked_transactions, find_linked_transactions_bulk
 from src.dashboard.components.graph_container import build_graph_html
 from src.dashboard.components.sidebar import DEFAULT_ALERTS_PATH, DEFAULT_TX_PATH
 from src.dashboard.config import HIGH_RISK_THRESHOLD, MEDIUM_RISK_THRESHOLD
 from src.dashboard.data_loader import get_active_datasets
+from src.graph_ml.clustering import kick_down_doors
 from src.webapp.graph_assets import make_graph_html_offline_safe
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -259,12 +261,65 @@ def _compute_geo_summary(enriched_alerts_df: pd.DataFrame, tx_df: pd.DataFrame, 
     return {"total_transactions": len(tx_df), "flagged_considered": len(flagged), "by_country": by_country, "by_asn": by_asn}
 
 
+def _parse_addr_list_for_kdd(val: object) -> list[str]:
+    """Same address-list parsing as Streamlit's Kick Down Doors expander (see
+    _build_kick_down_doors_subgraph) -- ported verbatim, not reimplemented.
+    """
+    if isinstance(val, list):
+        return [str(v).strip() for v in val if str(v).strip()]
+    if isinstance(val, str) and val.strip():
+        s = val.strip()
+        if s.startswith("[") and s.endswith("]"):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(v).strip() for v in parsed if str(v).strip()]
+            except Exception:
+                pass
+        return [s]
+    return []
+
+
+def _build_kick_down_doors_subgraph(target_addr: str, row: pd.Series, matching_txs: pd.DataFrame) -> nx.Graph:
+    """Build the exact same LOCAL neighborhood graph as Streamlit's "💥 Kick Down Doors"
+    expander (src/dashboard/components/alerts_table.py::render_entity_drilldown) -- ported
+    node-for-node from there, not reimplemented, so both surfaces agree on identical
+    results for identical entities: this entity plus its matching transactions (capped at
+    15) and those transactions' input/output addresses. Deliberately local, not a
+    network-wide graph -- matches what's already decided to tell judges tomorrow.
+    """
+    cluster_id = row.get("cluster_id")
+    # numpy int64 (a raw pandas scalar) isn't JSON-serializable by Flask's jsonify --
+    # cast to a native Python int (or None) here, at the source, rather than downstream.
+    cluster_id = None if pd.isna(cluster_id) else int(cluster_id)
+
+    sub_g = nx.Graph()
+    sub_g.add_node(target_addr, label=str(row.get("label", "unknown")), cluster=cluster_id)
+    if not matching_txs.empty:
+        for _, t_row in matching_txs.head(15).iterrows():
+            tx_node = f"tx_{t_row['txid']}"
+            sub_g.add_node(tx_node, label=str(t_row.get("label", "unknown")), node_type="tx")
+            sub_g.add_edge(target_addr, tx_node)
+            for fld in ("input_addresses", "output_addresses"):
+                for addr in _parse_addr_list_for_kdd(t_row.get(fld)):
+                    if addr and addr != target_addr:
+                        w_node = f"wallet_{addr}"
+                        sub_g.add_node(w_node, label="unknown", node_type="wallet")
+                        sub_g.add_edge(tx_node, w_node)
+    return sub_g
+
+
 def create_app() -> Flask:
     app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
 
     @app.get("/")
     def index() -> Response:
-        return send_from_directory(STATIC_DIR, "index.html")
+        # The old standalone HTML/CSS/JS frontend (static/index.html, app.js, style.css)
+        # is retired -- the React app at /app/ is the only frontend now. Redirect rather
+        # than making "/" itself serve the React shell: keeps exactly one URL (/app/) that
+        # actually owns the SPA's routing/asset paths, so a bookmarked or shared "/" link
+        # still lands somewhere real instead of quietly 404ing.
+        return redirect("/app/")
 
     @app.get("/app/")
     @app.get("/app/<path:filename>")
@@ -336,6 +391,34 @@ def create_app() -> Flask:
         linked_transactions = json.loads(linked[tx_cols].head(5).to_json(orient="records")) if not linked.empty else []
 
         return jsonify({"alert": alert, "linked_transactions": linked_transactions})
+
+    @app.get("/api/entity/<path:node_id>/kick-down-doors")
+    def api_kick_down_doors(node_id: str):
+        """Local (not network-wide) high-leverage disruption analysis for one entity --
+        ported from Streamlit's "💥 Kick Down Doors" expander in alerts_table.py, same
+        scope: this entity plus its up-to-15 matching transactions and their input/output
+        addresses, scored with src.graph_ml.clustering.kick_down_doors(). See
+        _build_kick_down_doors_subgraph() for the ported subgraph-construction logic.
+        """
+        tx_df, alerts_df, _, _ = _active_datasets()
+        enriched_alerts_df = _cached_enrich_geo(alerts_df, tx_df)
+        match = enriched_alerts_df[enriched_alerts_df["node_id"].astype(str) == str(node_id)]
+        if match.empty:
+            return jsonify({"error": f"No alert found for entity '{node_id}'."}), 404
+        row = match.iloc[0]
+
+        target_addr = str(node_id)
+        matching_txs = find_linked_transactions(tx_df, target_addr)
+
+        try:
+            sub_g = _build_kick_down_doors_subgraph(target_addr, row, matching_txs)
+            ranked = kick_down_doors(sub_g, [target_addr], top_n=5)
+        except Exception as err:
+            return jsonify({"error": f"Kick Down Doors analysis unavailable: {err}"}), 500
+
+        fields = ("node_id", "node_type", "impact_score", "betweenness", "is_articulation_point", "reason")
+        results = [{k: r[k] for k in fields} for r in ranked]
+        return jsonify({"entity_id": node_id, "results": results})
 
     @app.get("/api/transactions")
     def api_transactions():

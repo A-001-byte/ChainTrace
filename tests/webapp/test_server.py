@@ -10,14 +10,25 @@ from __future__ import annotations
 import json
 
 
-def test_index_serves_html(client):
+def test_index_redirects_to_react_app(client):
+    # The old standalone HTML/CSS/JS frontend is retired -- "/" now redirects to the
+    # React app at /app/ instead of serving its own index.html.
     resp = client.get("/")
+    assert resp.status_code in (301, 302, 308)
+    assert resp.headers["Location"].rstrip("/").endswith("/app")
+
+
+def test_react_app_root_is_served(client):
+    resp = client.get("/app/")
     assert resp.status_code == 200
-    assert b"ChainTrace" in resp.data
+    assert resp.mimetype == "text/html"
 
 
-def test_static_assets_are_served(client):
-    for path in ("/static/style.css", "/static/app.js"):
+def test_vendor_assets_are_still_served(client):
+    # vendor/ (vis-network, pyvis-lib) is NOT part of the old retired frontend -- /api/graph
+    # depends on it (see graph_assets.py's make_graph_html_offline_safe), so it must survive
+    # the old-webapp cleanup even though it lives outside static/app/.
+    for path in ("/static/vendor/vis-network/vis-network.min.js", "/static/vendor/pyvis-lib/bindings/utils.js"):
         resp = client.get(path)
         assert resp.status_code == 200, path
 
@@ -151,6 +162,54 @@ def test_entity_endpoint_404s_for_unknown_entity(client):
     resp = client.get("/api/entity/wallet_does_not_exist")
     assert resp.status_code == 404
     assert "no alert found" in resp.get_json()["error"].lower()
+
+
+def test_kick_down_doors_endpoint_returns_local_ranked_results(client):
+    # wallet_AAA is linked to tx_123 (see unified_dataset_csv fixture), giving the local
+    # subgraph builder a real 1-hop neighborhood to score -- same local scope as
+    # Streamlit's Kick Down Doors expander, not a network-wide analysis.
+    resp = client.get("/api/entity/wallet_AAA/kick-down-doors")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["entity_id"] == "wallet_AAA"
+    assert isinstance(body["results"], list)
+    assert len(body["results"]) > 0
+    expected_fields = {"node_id", "node_type", "impact_score", "betweenness", "is_articulation_point", "reason"}
+    for r in body["results"]:
+        assert set(r.keys()) == expected_fields
+
+
+def test_kick_down_doors_endpoint_404s_for_unknown_entity(client):
+    resp = client.get("/api/entity/wallet_does_not_exist/kick-down-doors")
+    assert resp.status_code == 404
+    assert "no alert found" in resp.get_json()["error"].lower()
+
+
+def test_kick_down_doors_subgraph_builder_handles_isolated_entity_gracefully():
+    # An entity with zero matching transactions -- e.g. a wallet just added to alerts,
+    # not yet seen in unified_dataset.csv -- must degrade cleanly, not crash. Confirmed
+    # empirically (not assumed): the entity is always added to the subgraph itself, so
+    # kick_down_doors() returns that single degenerate node (impact_score 0.0, no
+    # articulation point) rather than an empty list -- still a real, valid, non-crashing
+    # response for the frontend's empty/trivial-case handling to render.
+    # Exercised directly (not through the Flask app) since the shared alerts_csv/
+    # unified_dataset_csv fixtures are relied on by row/column-count assertions elsewhere;
+    # adding an unlinked wallet there would ripple into those unrelated tests.
+    import pandas as pd
+
+    from src.webapp.server import _build_kick_down_doors_subgraph
+    from src.graph_ml.clustering import kick_down_doors
+
+    row = pd.Series({"label": "unknown", "cluster_id": None})
+    empty_matching_txs = pd.DataFrame(columns=["txid", "input_addresses", "output_addresses"])
+
+    sub_g = _build_kick_down_doors_subgraph("wallet_isolated", row, empty_matching_txs)
+    results = kick_down_doors(sub_g, ["wallet_isolated"], top_n=5)
+
+    assert len(results) == 1
+    assert results[0]["node_id"] == "wallet_isolated"
+    assert results[0]["impact_score"] == 0.0
+    assert results[0]["is_articulation_point"] is False
 
 
 def test_transactions_endpoint_paginates(client):

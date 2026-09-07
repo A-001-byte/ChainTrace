@@ -20,6 +20,10 @@ export function getEntity(nodeId) {
   return fetchJson(`/api/entity/${encodeURIComponent(nodeId)}`);
 }
 
+export function getKickDownDoors(nodeId) {
+  return fetchJson(`/api/entity/${encodeURIComponent(nodeId)}/kick-down-doors`);
+}
+
 export function getGeo() {
   return fetchJson("/api/geo");
 }

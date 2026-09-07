@@ -217,6 +217,8 @@ def plant_geo_temporal_evasion(
                 illicit_wallet_ids.add(addr)
 
     candidate_wallets = sorted(illicit_wallet_ids) if illicit_wallet_ids else active_wallets
+    if evasion_ratio <= 0 or not candidate_wallets:
+        return df
     n_plant = max(1, int(len(candidate_wallets) * evasion_ratio))
     planted_wallets = set(rng.choice(candidate_wallets, size=min(n_plant, len(candidate_wallets)), replace=False))
 

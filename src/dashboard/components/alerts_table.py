@@ -39,9 +39,9 @@ def find_linked_transactions(tx_df: pd.DataFrame, entity_id: str) -> pd.DataFram
     """
     needle = _strip_node_id_prefix(entity_id)
     return tx_df[
-        tx_df["txid"].astype(str).str.contains(needle, case=False, na=False)
-        | tx_df["input_addresses"].astype(str).str.contains(needle, case=False, na=False)
-        | tx_df["output_addresses"].astype(str).str.contains(needle, case=False, na=False)
+        tx_df["txid"].astype(str).str.contains(needle, case=False, na=False, regex=False)
+        | tx_df["input_addresses"].astype(str).str.contains(needle, case=False, na=False, regex=False)
+        | tx_df["output_addresses"].astype(str).str.contains(needle, case=False, na=False, regex=False)
     ]
 
 

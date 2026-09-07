@@ -103,97 +103,6 @@ def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
     return df
 
 
-def build_wallet_dataset() -> pd.DataFrame:
-    """Build wallet-level dataset with network layer and planting metadata.
-    
-    Reads wallets_features.csv, attaches network layer (IPs, geo), and marks planted wallets.
-    This is the dataset used for wallet-level risk scoring.
-    """
-    from pathlib import Path
-    
-    rng = np.random.default_rng(config.RANDOM_STATE)
-    
-    # Load wallet features as base
-    print("Loading wallet features...")
-    wallets_features_csv = config.DATA_RAW_DIR / "elliptic_pp" / "wallets_features.csv"
-    wallet_df = pd.read_csv(wallets_features_csv)
-    print(f"Loaded {len(wallet_df)} wallets with features")
-    
-    # Load wallet classes/labels
-    wallets_classes_csv = config.DATA_RAW_DIR / "elliptic_pp" / "wallets_classes.csv"
-    wallet_classes = pd.read_csv(wallets_classes_csv)
-    wallet_classes.columns = ["address", "class"]
-    wallet_classes["class"] = wallet_classes["class"].map(config.CLASS_LABEL_MAP).fillna("unknown")
-    wallet_classes["label"] = wallet_classes["class"].map(config.LABEL_TO_NUMERIC).fillna(-1)
-    
-    wallet_df = wallet_df.merge(wallet_classes[["address", "class", "label"]], on="address", how="left")
-    wallet_df["label"] = wallet_df["label"].fillna(-1).astype(int)
-    
-    # Load ground truth (which wallets are planted)
-    gt_path = Path(config.PROCESSED_DIR) / "geo_ground_truth.csv"
-    if gt_path.exists():
-        ground_truth = pd.read_csv(gt_path)
-        planted_addrs = set(ground_truth["wallet_id"])
-    else:
-        planted_addrs = set()
-    
-    # Attach network layer
-    print("Attaching network layer to wallets...")
-    if not planted_addrs:
-        # Generate IPs for all wallets
-        labels = wallet_df["label"].tolist()
-        risky_pool = network_synth.load_asn_ip_pool(config.RISKY_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
-        residential_pool = network_synth.load_asn_ip_pool(config.RESIDENTIAL_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
-        us_residential_pool = network_synth.load_asn_ip_pool([7922, 7018, 701], config.GEOLITE_ASN_BLOCKS_CSV)
-        
-        src_ips = network_synth.generate_ips_batch(labels, rng, risky_pool, residential_pool, us_residential_pool)
-        wallet_df["src_ip"] = src_ips
-    else:
-        # Use override IPs from ground truth for planted wallets
-        gt_ip_map = {}
-        for _, row in ground_truth.iterrows():
-            claimed_country = row["claimed_country"]
-            # For now, just use a marker; in full implementation would resolve to actual IP
-            gt_ip_map[row["wallet_id"]] = claimed_country
-        
-        labels = wallet_df["label"].tolist()
-        risky_pool = network_synth.load_asn_ip_pool(config.RISKY_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
-        residential_pool = network_synth.load_asn_ip_pool(config.RESIDENTIAL_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
-        us_residential_pool = network_synth.load_asn_ip_pool([7922, 7018, 701], config.GEOLITE_ASN_BLOCKS_CSV)
-        
-        src_ips = []
-        for addr, label in zip(wallet_df["address"], labels):
-            if addr in planted_addrs:
-                # For planted: use a placeholder (in production, would use actual override IP from ground truth)
-                src_ips.append(gt_ip_map.get(addr, "0.0.0.0"))
-            else:
-                src_ips.append(network_synth.generate_ip(label, rng, risky_pool, residential_pool, us_residential_pool))
-        
-        wallet_df["src_ip"] = src_ips
-    
-    # Generate other network attributes
-    n = len(wallet_df)
-    dst_ips = [network_synth.random_public_ipv4(rng) for _ in range(n)]
-    ports = network_synth.generate_ports(n, rng)
-    
-    wallet_df["dst_ip"] = dst_ips
-    wallet_df["src_port"] = [8333] * n  # Bitcoin default
-    wallet_df["dst_port"] = ports
-    
-    # Resolve geo from IPs
-    print("Resolving geo-location from IPs...")
-    geo_index = geo_lookup.build_geo_index()
-    geo_countries, asns = geo_lookup.resolve_geo_batch(wallet_df["src_ip"].tolist(), geo_index)
-    
-    wallet_df["geo_country"] = geo_countries
-    wallet_df["asn"] = asns
-    
-    # Mark planted wallets
-    wallet_df["planted"] = wallet_df["address"].isin(planted_addrs)
-    
-    return wallet_df
-
-
 def main(sample_timesteps: int | None = None):
     df = build_unified_dataset(sample_timesteps=sample_timesteps)
 
@@ -203,17 +112,6 @@ def main(sample_timesteps: int | None = None):
     print(f"\nExported unified dataset -> {config.UNIFIED_DATASET_CSV}")
     print(f"Final shape: {df.shape[0]} rows x {df.shape[1]} columns")
     print(f"Columns: {list(df.columns)}")
-    
-    # Also build wallet-level dataset
-    print("\n" + "="*80)
-    print("Building wallet-level dataset...")
-    print("="*80)
-    wallet_df = build_wallet_dataset()
-    wallet_df.to_csv(config.WALLET_DATASET_CSV, index=False)
-    print(f"\nExported wallet dataset -> {config.WALLET_DATASET_CSV}")
-    print(f"Final shape: {wallet_df.shape[0]} rows x {wallet_df.shape[1]} columns")
-    print(f"Columns: {list(wallet_df.columns)}")
-    
     return df
 
 

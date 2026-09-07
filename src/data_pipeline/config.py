@@ -13,7 +13,6 @@ REPO_ROOT = ml_config.REPO_ROOT
 DATA_RAW_DIR = ml_config.DATA_RAW_DIR
 PROCESSED_DIR = ml_config.PROCESSED_DIR
 RANDOM_STATE = ml_config.RANDOM_STATE
-CLASS_LABEL_MAP = ml_config.CLASS_LABEL_MAP
 
 GEOLITE_DIR = DATA_RAW_DIR / "geolite2"
 GEOLITE_CITY_BLOCKS_CSV = GEOLITE_DIR / "GeoLite2-City-Blocks-IPv4.csv"
@@ -21,7 +20,6 @@ GEOLITE_CITY_LOCATIONS_CSV = GEOLITE_DIR / "GeoLite2-City-Locations-en.csv"
 GEOLITE_ASN_BLOCKS_CSV = GEOLITE_DIR / "GeoLite2-ASN-Blocks-IPv4.csv"
 
 UNIFIED_DATASET_CSV = PROCESSED_DIR / "unified_dataset.csv"
-WALLET_DATASET_CSV = PROCESSED_DIR / "wallet_dataset.csv"
 
 # ASNs to weight illicit-labeled transactions toward (hosting / VPN-heavy / Tor-friendly).
 # Verified present with real announced CIDR blocks in the team's GeoLite2-ASN-Blocks-IPv4.csv

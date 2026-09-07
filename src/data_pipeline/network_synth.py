@@ -11,6 +11,7 @@ that ASN, not a hand-guessed range.
 from __future__ import annotations
 
 import ipaddress
+from collections import Counter
 from datetime import timedelta
 from pathlib import Path
 
@@ -18,6 +19,16 @@ import numpy as np
 import pandas as pd
 
 from . import config, geo_lookup
+# Imported (not hardcoded) so the planting logic and the detector's own noise floor can
+# never drift apart -- planting a wallet the detector would never even evaluate wastes
+# a "planted evader" slot, and the same MAX_CLAIMED_BUSINESS_FRACTION threshold that
+# decides whether the detector *would* flag a mismatch is what a negative control's
+# claimed country has to genuinely satisfy for it to count as honest below.
+from src.graph_ml.geo_temporal import (
+    MAX_CLAIMED_BUSINESS_FRACTION,
+    MIN_TRANSACTIONS_FOR_SIGNAL,
+    _business_hour_fraction,
+)
 
 
 def load_asn_ip_pool(asns: list[int], asn_blocks_csv: str | Path) -> list[str]:
@@ -176,12 +187,21 @@ def plant_geo_temporal_evasion(
       its peak activity hour falls in deep night / sleeping hours (00:00-06:00 local time)
       in the claimed country (a believable working-hours-shaped timezone mismatch).
     - Overrides src_ip, geo_country, and asn consistently across all transactions of planted wallets.
-    - Writes planted-wallet metadata to data/processed/geo_ground_truth.csv.
+    - Writes planted-wallet metadata, AND a comparable set of verified-honest negative
+      controls, to data/processed/geo_ground_truth.csv.
+
+    Planting candidates and negative controls are both restricted to wallets with
+    >= MIN_TRANSACTIONS_FOR_SIGNAL input-address transactions -- the same floor the
+    detector itself uses to decide whether a wallet has enough data to trust a "peak"
+    hour. A wallet below that floor is never evaluated by the detector regardless of
+    how implausible its planted pattern is, so planting into it wastes a ground-truth
+    row instead of testing anything.
     """
     if "input_addresses" not in df.columns or "timestamp" not in df.columns:
         return df
 
     wallet_hours: dict[str, list[int]] = {}
+    wallet_countries: dict[str, Counter] = {}
     for idx, row in df.iterrows():
         ts = row["timestamp"]
         if pd.isna(ts):
@@ -194,12 +214,22 @@ def plant_geo_temporal_evasion(
             continue
 
         addrs = _extract_addresses(row["input_addresses"])
+        row_country = row.get("geo_country")
         for addr in addrs:
             wallet_hours.setdefault(addr, []).append(hour)
+            if pd.notna(row_country):
+                wallet_countries.setdefault(addr, Counter())[str(row_country)] += 1
 
     active_wallets = sorted(list(wallet_hours.keys()))
     if not active_wallets:
         return df
+
+    # Wallets with enough transactions for the detector to ever form an opinion about
+    # them -- this is the eligibility floor for BOTH planted evaders and negative
+    # controls, not just planting, so the two populations stay comparable.
+    eligible_wallets = {
+        addr for addr, hours in wallet_hours.items() if len(hours) >= MIN_TRANSACTIONS_FOR_SIGNAL
+    }
 
     # Build maps of wallets by label for proportional planting.
     # Plant across BOTH licit and illicit wallets in proportion to their prevalence.
@@ -208,17 +238,17 @@ def plant_geo_temporal_evasion(
     # won't be illicit).
     licit_wallet_ids: set[str] = set()
     illicit_wallet_ids: set[str] = set()
-    
+
     licit_label_rows = df[df["label"].apply(_normalize_label) == "licit"]
     for _, row in licit_label_rows.iterrows():
         for addr in _extract_addresses(row.get("input_addresses", [])):
-            if addr in wallet_hours:
+            if addr in eligible_wallets:
                 licit_wallet_ids.add(addr)
-    
+
     illicit_label_rows = df[df["label"].apply(_normalize_label) == "illicit"]
     for _, row in illicit_label_rows.iterrows():
         for addr in _extract_addresses(row.get("input_addresses", [])):
-            if addr in wallet_hours:
+            if addr in eligible_wallets:
                 illicit_wallet_ids.add(addr)
     
     # Plant proportionally: if 60% of active wallets are illicit, plant ~60% of
@@ -298,10 +328,41 @@ def plant_geo_temporal_evasion(
             _, asn_list = geo_lookup.resolve_geo_batch([override_ip], geo_index)
             df.at[idx, "asn"] = asn_list[0]
 
+    # Negative controls: wallets NOT selected for planting, verified honest -- their
+    # claimed geo_country's local hour genuinely does explain their real activity
+    # (claimed_business_fraction above the detector's own MAX_CLAIMED_BUSINESS_FRACTION
+    # threshold, i.e. the same bar the detector itself uses to decide "this claim
+    # plausibly explains the pattern, don't flag it"). Reuses the detector's own
+    # _business_hour_fraction rather than reimplementing the check, so "honest" here
+    # means exactly what "not flagged" would mean to the detector.
+    # Target count mirrors the planting ratio, drawn only from the same eligible
+    # (>= MIN_TRANSACTIONS_FOR_SIGNAL) pool, excluding anything already planted.
+    n_honest_target = max(1, int(len(eligible_wallets) * evasion_ratio))
+    honest_candidate_pool = sorted(eligible_wallets - planted_wallets)
+    honest_wallets: list[str] = []
+    if honest_candidate_pool:
+        shuffle_order = rng.permutation(len(honest_candidate_pool))
+        for i in shuffle_order:
+            w = honest_candidate_pool[int(i)]
+            country_counts = wallet_countries.get(w)
+            if not country_counts:
+                continue
+            claimed_country = country_counts.most_common(1)[0][0]
+            claimed_offset = config.COUNTRY_UTC_OFFSET.get(claimed_country)
+            if claimed_offset is None:
+                continue
+            claimed_frac = _business_hour_fraction(Counter(wallet_hours[w]), claimed_offset)
+            if claimed_frac > MAX_CLAIMED_BUSINESS_FRACTION:
+                honest_wallets.append(w)
+            if len(honest_wallets) >= n_honest_target:
+                break
+
     gt_path = Path(ground_truth_path or (config.PROCESSED_DIR / "geo_ground_truth.csv"))
     gt_path.parent.mkdir(parents=True, exist_ok=True)
     # Write full evasion metadata so Ankit's VPN Catcher can do blind validation.
     # CRITICAL: this file is written once here and never read back by any pipeline code.
+    # The detector must never read this file at all, so it certainly never sees the
+    # planted/honest distinction below -- that split only exists for scripts/score_vpn_catcher.py.
     gt_rows = []
     n_illicit_planted = 0
     n_licit_planted = 0
@@ -317,19 +378,34 @@ def plant_geo_temporal_evasion(
         gt_rows.append({
             "wallet_id": w,
             "planted": True,
+            "honest": False,
+            "claimed_country": claimed_country,
+            "peak_utc_hour": peak_utc,
+            "original_label": wallet_label,
+        })
+    for w in sorted(honest_wallets):
+        claimed_country = wallet_countries[w].most_common(1)[0][0]
+        peak_utc = int(round(float(np.mean(wallet_hours.get(w, [0]))))) % 24
+        wallet_label = "illicit" if w in illicit_wallet_ids else ("licit" if w in licit_wallet_ids else "unknown")
+        gt_rows.append({
+            "wallet_id": w,
+            "planted": False,
+            "honest": True,
             "claimed_country": claimed_country,
             "peak_utc_hour": peak_utc,
             "original_label": wallet_label,
         })
     gt_df = pd.DataFrame(gt_rows)
     gt_df.to_csv(gt_path, index=False)
-    
+
     # Log planting summary
     total_planted = len(planted_wallets)
+    total_honest = len(honest_wallets)
     pct_illicit = 100.0 * n_illicit_planted / total_planted if total_planted > 0 else 0
     pct_licit = 100.0 * n_licit_planted / total_planted if total_planted > 0 else 0
     print(f"\n[VPN Catcher Ground Truth] Planted {total_planted} evaders among {len(active_wallets)} wallets:")
     print(f"  {n_illicit_planted} illicit ({pct_illicit:.1f}%) + {n_licit_planted} licit ({pct_licit:.1f}%)")
+    print(f"  Plus {total_honest} verified-honest negative controls (planted=False, honest=True)")
     print(f"  Ground truth written to {gt_path}")
 
     return df

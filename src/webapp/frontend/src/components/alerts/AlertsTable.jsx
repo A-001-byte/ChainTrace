@@ -1,7 +1,20 @@
 ﻿import { useState, useMemo } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import RiskPill from "../shared/RiskPill";
+import { motionTokens } from "../../lib/motionTokens";
+
+// Only the first N rows are staggered; everything past that shares the last delay so a
+// 48-row table never feels like it's slowly dealing cards.
+const MAX_STAGGERED_ROWS = 10;
+const PER_ROW_DELAY = 0.03;
+
+// Same hue as --bg-card-hover (#1a2336), written as rgba so the hover transition
+// interpolates alpha directly instead of passing through a grey "transparent".
+const ROW_BG_IDLE = "rgba(26, 35, 54, 0)";
+const ROW_BG_HOVER = "rgba(26, 35, 54, 1)";
 
 export default function AlertsTable({ title, rows, onSelectRow }) {
+  const reduceMotion = useReducedMotion();
   const [sortField, setSortField] = useState("risk_score");
   const [sortDir, setSortDir] = useState("desc");
   const [search, setSearch] = useState("");
@@ -83,8 +96,22 @@ export default function AlertsTable({ title, rows, onSelectRow }) {
             {filtered.length === 0 ? (
               <tr><td colSpan={columns.length} style={{ padding: "1rem", color: "var(--text-muted)" }}>No matching entities.</td></tr>
             ) : filtered.map((row, i) => (
-              <tr key={row.node_id ?? i} style={{ borderBottom: "1px solid var(--border-color)", cursor: "pointer" }} onClick={() => onSelectRow?.(row.node_id)} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card-hover)")}
-    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")} >
+              <motion.tr
+                key={row.node_id ?? i}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : motionTokens.distance.sm, backgroundColor: ROW_BG_IDLE }}
+                animate={{ opacity: 1, y: 0, backgroundColor: ROW_BG_IDLE }}
+                transition={{
+                  duration: reduceMotion ? motionTokens.duration.fast : motionTokens.duration.normal,
+                  ease: motionTokens.easing.smooth,
+                  delay: Math.min(i, MAX_STAGGERED_ROWS) * PER_ROW_DELAY,
+                }}
+                whileHover={{
+                  backgroundColor: ROW_BG_HOVER,
+                  transition: { duration: motionTokens.duration.fast, ease: motionTokens.easing.sharp },
+                }}
+                style={{ borderBottom: "1px solid var(--border-color)", cursor: "pointer" }}
+                onClick={() => onSelectRow?.(row.node_id)}
+              >
                 <td style={{ padding: "0.55rem 0.8rem", fontFamily: "var(--font-mono)" }} title={row.node_id}>
                   {String(row.node_id ?? "-").length > 28 ? String(row.node_id).slice(0, 28) + "…" : (row.node_id ?? "-")}
                 </td>
@@ -100,7 +127,7 @@ export default function AlertsTable({ title, rows, onSelectRow }) {
                 <td style={{ padding: "0.55rem 0.8rem", color: "var(--text-secondary)", maxWidth: "280px" }} title={row.reason}>
                   {row.reason ?? "-"}
                 </td>
-              </tr>
+              </motion.tr>
             ))}
           </tbody>
         </table>

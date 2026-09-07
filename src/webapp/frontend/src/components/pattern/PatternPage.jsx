@@ -1,4 +1,6 @@
+import { motion, useReducedMotion } from "motion/react";
 import { useAlerts } from "../../hooks/useAlerts";
+import { motionTokens } from "../../lib/motionTokens";
 
 const ARCHETYPES = [
   "Ransomware-shaped",
@@ -8,8 +10,9 @@ const ARCHETYPES = [
   "Insufficient signal",
 ];
 
-function ArchetypeBar({ label, count, total }) {
-  const pct = total > 0 ? (count / total) * 100 : 0;
+function ArchetypeBar({ label, count, total, index, reduceMotion }) {
+  const fraction = total > 0 ? count / total : 0;
+  const pct = fraction * 100;
   return (
     <div style={{ marginBottom: "0.7rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", marginBottom: "0.25rem" }}>
@@ -19,13 +22,28 @@ function ArchetypeBar({ label, count, total }) {
         </span>
       </div>
       <div style={{ background: "var(--bg-main)", borderRadius: "4px", height: "8px", overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent-cyan)", borderRadius: "4px" }} />
+        {/* Full-width bar scaled on X from its left edge -- a transform, not an animated
+            width, so growth stays on the compositor. */}
+        <motion.div
+          initial={{ scaleX: reduceMotion ? fraction : 0 }}
+          animate={{ scaleX: fraction }}
+          transition={{
+            duration: reduceMotion ? 0 : motionTokens.duration.slow,
+            ease: motionTokens.easing.smooth,
+            delay: reduceMotion ? 0 : index * 0.05,
+          }}
+          style={{
+            width: "100%", height: "100%", background: "var(--accent-cyan)",
+            borderRadius: "4px", transformOrigin: "left",
+          }}
+        />
       </div>
     </div>
   );
 }
 
 export default function PatternPage() {
+  const reduceMotion = useReducedMotion();
   const { data, error, loading } = useAlerts();
 
   if (loading) return <p style={{ color: "var(--text-muted)" }}>Loading pattern intelligence…</p>;
@@ -75,12 +93,14 @@ export default function PatternPage() {
           background: "var(--bg-card)", border: "1px solid var(--border-color)",
           borderRadius: "10px", padding: "1.2rem", maxWidth: "600px",
         }}>
-          {ARCHETYPES.map((archetype) => (
+          {ARCHETYPES.map((archetype, i) => (
             <ArchetypeBar
               key={archetype}
               label={archetype}
               count={withIntent.filter((r) => r.intent_label === archetype).length}
               total={withIntent.length}
+              index={i}
+              reduceMotion={reduceMotion}
             />
           ))}
         </div>

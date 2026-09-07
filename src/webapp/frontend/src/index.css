@@ -32,12 +32,30 @@ body {
   padding: 1rem 0.5rem;
 }
 
+/* Positioning context for the sliding active-tab indicator (see Sidebar.jsx). The
+   0.25rem gap that used to be .nav-item's margin-bottom lives here now, so the
+   indicator can sit at inset:0 without covering the gap between items. */
+.nav-item-wrap {
+  position: relative;
+  margin-bottom: 0.25rem;
+}
+
+.nav-item-indicator {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-card-hover);
+  border-left: 3px solid var(--accent-cyan);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
 .nav-item {
   display: block;
+  position: relative; /* keeps the label above the indicator */
+  z-index: 1;
   width: 100%;
   text-align: left;
   padding: 0.6rem 0.75rem;
-  margin-bottom: 0.25rem;
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -47,12 +65,14 @@ body {
   cursor: pointer;
 }
 
-.nav-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+/* Scoped to :not(.active) so a hover background never paints over the active
+   indicator's cyan left border (the button spans the full wrapper width). */
+.nav-item:not(.active):hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
+/* Background + left border now come from .nav-item-indicator so they can glide
+   between items instead of popping on/off with the class. */
 .nav-item.active {
-  background: var(--bg-card-hover);
   color: var(--accent-cyan);
-  border-left: 3px solid var(--accent-cyan);
 }
 
 .main-content { padding: 1.5rem; overflow-y: auto; }

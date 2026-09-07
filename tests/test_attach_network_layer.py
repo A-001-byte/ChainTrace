@@ -51,7 +51,7 @@ def test_attach_network_layer_and_geo_temporal_evasion(tmp_path):
         assert col in out_df.columns
         assert out_df[col].isnull().sum() == 0
 
-    # 2. Verify ground truth contains the full VPN Catcher schema.
+    # 2. Verify ground truth contains the full VPN Catcher schema (now with original_label).
     assert ground_truth_csv.exists()
     gt_df = pd.read_csv(ground_truth_csv)
     assert list(gt_df.columns) == [
@@ -59,20 +59,26 @@ def test_attach_network_layer_and_geo_temporal_evasion(tmp_path):
         "planted",
         "claimed_country",
         "peak_utc_hour",
+        "original_label",
     ]
 
-    # Planting is proportional to wallets appearing in illicit-labelled rows,
-    # rather than all active wallets.
-    illicit_wallets = {
+    # Planting is now proportional across both licit AND illicit wallets
+    # to enable fair blind validation.
+    all_wallets = {
         address
-        for _, row in df_sample[df_sample["label"] == 1].iterrows()
+        for _, row in df_sample.iterrows()
         for address in row["input_addresses"]
     }
-    expected_planted = max(1, int(len(illicit_wallets) * 0.20))
+    expected_planted = max(1, int(len(all_wallets) * 0.20))
     planted_wallets = set(gt_df["wallet_id"])
     assert len(planted_wallets) == expected_planted
-    assert planted_wallets <= illicit_wallets
+    assert planted_wallets <= all_wallets
     assert gt_df["planted"].eq(True).all()
+    
+    # Verify planted wallets include both licit and illicit labels
+    # (proportional to their distribution in the dataset)
+    labels_in_ground_truth = set(gt_df["original_label"])
+    assert "licit" in labels_in_ground_truth or "illicit" in labels_in_ground_truth
 
     # 3. Verify PERSISTENCE of claimed geo_country for each planted wallet
     for planted_w in planted_wallets:

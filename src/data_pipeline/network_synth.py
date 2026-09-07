@@ -80,9 +80,8 @@ def generate_ip(
     """label is normalized string or numeric class: 'illicit'/1 | 'licit'/0 | 'unknown'/-1.
 
     illicit: 60% risky-ASN IP, 40% uniform random public.
-    licit:   81.9567% US-residential-ASN IP (Comcast/AT&T/Verizon CIDRs), 18.0433% random public.
-             P calibrated so geo_country resolves to US in ~82% of licit cases.
-             Formula: P(US pool) = (0.82 - 0.0024) / 0.9976 = 0.819567
+    licit:   70% US-residential-ASN IP (Comcast/AT&T/Verizon CIDRs), 30% random public.
+             (No hardcoded target for geo_country % — let it emerge naturally from data.)
     unknown: uniform random public
     """
     norm_label = _normalize_label(label)
@@ -91,10 +90,10 @@ def generate_ip(
             return random_ip_from_pool(risky_pool, rng)
         return random_public_ipv4(rng)
     if norm_label == "licit":
-        # Draw directly from US-residential pool at P=0.819567 (bypasses global residential).
-        # Expected US geo_country = 0.819567*1.0 + 0.180433*0.0024 ~= 82%.
+        # Draw from US-residential pool at P=0.70 (no hardcoded target).
+        # Let geo_country % fall naturally from actual GeoLite2 data.
         pool = us_residential_pool if us_residential_pool else residential_pool
-        if pool and rng.random() < 0.819567:
+        if pool and rng.random() < 0.70:
             return random_ip_from_pool(pool, rng)
         return random_public_ipv4(rng)
     return random_public_ipv4(rng)
@@ -109,9 +108,9 @@ def generate_ips_batch(
 ) -> list[str]:
     """Generate IPs in bulk for a list of transaction labels.
 
-    For licit transactions, draws directly from us_residential_pool at P=0.819567
-    (Comcast 7922, AT&T 7018, Verizon 701) -- bypassing the global residential pool.
-    Expected licit geo_country=US: 0.819567*1.0 + 0.180433*0.0024 ~= 82%.
+    For licit transactions, draws from us_residential_pool at P=0.70
+    (Comcast 7922, AT&T 7018, Verizon 701).
+    Geo_country % emerges naturally from GeoLite2 data, no hardcoded target.
     """
     return [generate_ip(lbl, rng, risky_pool, residential_pool, us_residential_pool) for lbl in labels]
 
@@ -202,23 +201,57 @@ def plant_geo_temporal_evasion(
     if not active_wallets:
         return df
 
-    # CRITICAL: plant only into illicit-labelled wallets.
-    # Licit wallets with a mismatched country are semantically wrong for VPN Catcher
-    # (an honest US wallet being assigned CN geo is not evasion -- it's noise) and
-    # they were depressing licit-US% by ~19 points because ~19% of licit rows share
-    # a transaction with a planted wallet and inherit its override country.
-    #
-    # Build a set of wallet IDs that appear exclusively in illicit-labelled rows.
-    illicit_label_rows = df[df["label"].apply(_normalize_label) == "illicit"]
+    # Build maps of wallets by label for proportional planting.
+    # Plant across BOTH licit and illicit wallets in proportion to their prevalence.
+    # This ensures fair blind validation: a detector flagging illicit wallets won't
+    # achieve inflated recall just by catching planted evaders (every planted evader
+    # won't be illicit).
+    licit_wallet_ids: set[str] = set()
     illicit_wallet_ids: set[str] = set()
+    
+    licit_label_rows = df[df["label"].apply(_normalize_label) == "licit"]
+    for _, row in licit_label_rows.iterrows():
+        for addr in _extract_addresses(row.get("input_addresses", [])):
+            if addr in wallet_hours:
+                licit_wallet_ids.add(addr)
+    
+    illicit_label_rows = df[df["label"].apply(_normalize_label) == "illicit"]
     for _, row in illicit_label_rows.iterrows():
         for addr in _extract_addresses(row.get("input_addresses", [])):
-            if addr in wallet_hours:  # only wallets we have timestamp data for
+            if addr in wallet_hours:
                 illicit_wallet_ids.add(addr)
-
-    candidate_wallets = sorted(illicit_wallet_ids) if illicit_wallet_ids else active_wallets
-    n_plant = max(1, int(len(candidate_wallets) * evasion_ratio))
-    planted_wallets = set(rng.choice(candidate_wallets, size=min(n_plant, len(candidate_wallets)), replace=False))
+    
+    # Plant proportionally: if 60% of active wallets are illicit, plant ~60% of
+    # evaders into illicit wallets and ~40% into licit wallets.
+    total_labeled = len(licit_wallet_ids) + len(illicit_wallet_ids)
+    n_plant = max(1, int(len(active_wallets) * evasion_ratio))
+    
+    if total_labeled > 0:
+        illicit_ratio = len(illicit_wallet_ids) / total_labeled
+        n_illicit_plant = int(n_plant * illicit_ratio)
+        n_licit_plant = n_plant - n_illicit_plant
+    else:
+        # Fallback if no labeled wallets
+        n_illicit_plant = n_plant // 2
+        n_licit_plant = n_plant - n_illicit_plant
+    
+    planted_wallets = set()
+    if illicit_wallet_ids:
+        planted_wallets.update(
+            rng.choice(
+                sorted(illicit_wallet_ids),
+                size=min(n_illicit_plant, len(illicit_wallet_ids)),
+                replace=False
+            )
+        )
+    if licit_wallet_ids:
+        planted_wallets.update(
+            rng.choice(
+                sorted(licit_wallet_ids),
+                size=min(n_licit_plant, len(licit_wallet_ids)),
+                replace=False
+            )
+        )
 
     unique_geo_countries = [c for c in np.unique(geo_index.city_country) if c in config.COUNTRY_UTC_OFFSET]
     if not unique_geo_countries:
@@ -270,17 +303,34 @@ def plant_geo_temporal_evasion(
     # Write full evasion metadata so Ankit's VPN Catcher can do blind validation.
     # CRITICAL: this file is written once here and never read back by any pipeline code.
     gt_rows = []
+    n_illicit_planted = 0
+    n_licit_planted = 0
     for w in sorted(planted_wallets):
         claimed_country, _ = wallet_overrides.get(w, ("UNKNOWN", 0))
         peak_utc = int(round(float(np.mean(wallet_hours.get(w, [0]))))) % 24
+        # Determine if this wallet was planted in illicit or licit pool
+        wallet_label = "illicit" if w in illicit_wallet_ids else "licit"
+        if wallet_label == "illicit":
+            n_illicit_planted += 1
+        else:
+            n_licit_planted += 1
         gt_rows.append({
             "wallet_id": w,
             "planted": True,
             "claimed_country": claimed_country,
             "peak_utc_hour": peak_utc,
+            "original_label": wallet_label,
         })
     gt_df = pd.DataFrame(gt_rows)
     gt_df.to_csv(gt_path, index=False)
+    
+    # Log planting summary
+    total_planted = len(planted_wallets)
+    pct_illicit = 100.0 * n_illicit_planted / total_planted if total_planted > 0 else 0
+    pct_licit = 100.0 * n_licit_planted / total_planted if total_planted > 0 else 0
+    print(f"\n[VPN Catcher Ground Truth] Planted {total_planted} evaders among {len(active_wallets)} wallets:")
+    print(f"  {n_illicit_planted} illicit ({pct_illicit:.1f}%) + {n_licit_planted} licit ({pct_licit:.1f}%)")
+    print(f"  Ground truth written to {gt_path}")
 
     return df
 

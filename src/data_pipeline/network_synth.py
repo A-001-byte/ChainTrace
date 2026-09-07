@@ -339,14 +339,14 @@ def attach_network_layer(
     df: pd.DataFrame,
     rng: np.random.Generator | None = None,
     geo_index: geo_lookup.GeoIndex | None = None,
-    plant_evasion: bool = True,
+    plant_evasion: bool = False,
     evasion_ratio: float = 0.05,
     ground_truth_path: Path | str | None = None,
 ) -> pd.DataFrame:
-    """Attach network layer (src_ip, dst_ip, src_port, dst_port, geo_country, asn) to df.
+    """Attach the synthetic network layer to a Contract A dataframe.
 
-    Also handles Sprint 2 VPN Catcher evasion wallet planting and writes planted-wallet
-    metadata to data/processed/geo_ground_truth.csv.
+    Evasion planting is an opt-in experiment for isolated tests. It is disabled by
+    default so Contract A produces only the agreed unified transaction dataset.
     """
     if rng is None:
         rng = np.random.default_rng(config.RANDOM_STATE)

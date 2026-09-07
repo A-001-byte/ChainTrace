@@ -130,7 +130,7 @@ def _enrich_geo(alerts_df: pd.DataFrame, tx_df: pd.DataFrame) -> pd.DataFrame:
     Mock data already carries real-ish geo_country/asn per alert, so this is a no-op there.
     """
     enriched = alerts_df.copy()
-    needs_geo = enriched["geo_country"].isin(["Unknown", None]) | enriched["asn"].isin(["Unknown ASN", None])
+    needs_geo = (enriched["geo_country"].isna() | enriched["geo_country"].isin(["Unknown"])) | (enriched["asn"].isna() | enriched["asn"].isin(["Unknown ASN"]))
     candidates = enriched[needs_geo].head(MAX_ALERTS_TO_GEO_ENRICH)
     if candidates.empty:
         return enriched

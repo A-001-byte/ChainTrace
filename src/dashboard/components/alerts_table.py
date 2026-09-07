@@ -334,3 +334,56 @@ def render_entity_drilldown(entity_id: str, alerts_df: pd.DataFrame, tx_df: pd.D
         )
     else:
         st.info("No direct 1:1 transaction records found in current transaction slice.")
+
+    # 💥 Kick Down Doors USP — High-Leverage Node Analysis (Person B / Module 3 USP)
+    with st.expander("💥 Kick Down Doors — High-Leverage Disruption Analysis", expanded=False):
+        st.caption("Identifies high-leverage target nodes whose removal maximally disrupts money-flow pathways around this entity.")
+        try:
+            import networkx as nx
+            from src.graph_ml.clustering import kick_down_doors
+
+            # Construct local neighborhood graph around entity and matching transactions
+            sub_g = nx.Graph()
+            sub_g.add_node(target_addr, label=str(row.get("label", "unknown")), cluster=row.get("cluster_id"))
+            if not matching_txs.empty:
+                for _, t_row in matching_txs.head(15).iterrows():
+                    tx_node = f"tx_{t_row['txid']}"
+                    sub_g.add_node(tx_node, label=str(t_row.get("label", "unknown")), node_type="tx")
+                    sub_g.add_edge(target_addr, tx_node)
+                    # Add neighboring input/output addresses
+                    def _parse_addr_list(val: object) -> list[str]:
+                        if isinstance(val, list):
+                            return [str(v).strip() for v in val if str(v).strip()]
+                        if isinstance(val, str) and val.strip():
+                            s = val.strip()
+                            if s.startswith("[") and s.endswith("]"):
+                                try:
+                                    import json
+                                    parsed = json.loads(s)
+                                    if isinstance(parsed, list):
+                                        return [str(v).strip() for v in parsed if str(v).strip()]
+                                except Exception:
+                                    pass
+                            return [s]
+                        return []
+
+                    for fld in ["input_addresses", "output_addresses"]:
+                        for addr in _parse_addr_list(t_row.get(fld)):
+                            if addr and addr != target_addr:
+                                w_node = f"wallet_{addr}"
+                                sub_g.add_node(w_node, label="unknown", node_type="wallet")
+                                sub_g.add_edge(tx_node, w_node)
+
+            target_nodes = kick_down_doors(sub_g, [target_addr], top_n=5)
+            if target_nodes:
+                kdd_df = pd.DataFrame(target_nodes)
+                st.dataframe(
+                    kdd_df[["node_id", "node_type", "impact_score", "betweenness", "is_articulation_point", "reason"]],
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.info("No structural articulation points found in immediate 1-hop neighborhood.")
+        except Exception as e:
+            st.warning(f"Kick Down Doors analysis unavailable: {e}")
+

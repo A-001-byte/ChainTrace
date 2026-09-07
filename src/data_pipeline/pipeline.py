@@ -125,17 +125,16 @@ def build_blockchain_dataset(
 
 def attach_network_layer(blockchain_df: pd.DataFrame, rng: np.random.Generator | None = None) -> pd.DataFrame:
     """Ujjwal's Sprint 2 boundary: attach src_ip/dst_ip/src_port/dst_port/geo_country/asn
-    and VPN Catcher ground truth to a Contract A blockchain DataFrame.
+    to a Contract A blockchain DataFrame. Wallet-level planting is not part of the
+    production build.
     """
-    print("\nAttaching network layer (IPs, ports, GeoLite2 country/ASN, VPN Catcher ground truth)...")
+    print("\nAttaching synthetic network layer (IPs, ports, GeoLite2 country/ASN)...")
     return network_synth.attach_network_layer(blockchain_df, rng=rng)
 
 
 
 def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
-    """Full demo pipeline: Contract A blockchain columns + Ujjwal's network layer,
-    sharing one seeded rng so the whole run stays deterministic end to end.
-    """
+    """Build Contract A's one unified transaction dataset deterministically."""
     rng = np.random.default_rng(config.RANDOM_STATE)
     blockchain_df = build_blockchain_dataset(sample_timesteps=sample_timesteps, rng=rng)
     return attach_network_layer(blockchain_df, rng=rng)

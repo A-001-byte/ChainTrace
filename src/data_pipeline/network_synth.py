@@ -343,10 +343,14 @@ def attach_network_layer(
     evasion_ratio: float = 0.05,
     ground_truth_path: Path | str | None = None,
 ) -> pd.DataFrame:
-    """Attach network layer (src_ip, dst_ip, src_port, dst_port, geo_country, asn) to df.
+    """Attach the synthetic network layer to a Contract A dataframe.
 
-    Also handles Sprint 2 VPN Catcher evasion wallet planting and writes planted-wallet
-    metadata to data/processed/geo_ground_truth.csv.
+    Evasion planting is enabled by default: it is the production behavior, not an
+    opt-in experiment. The VPN Catcher USP's blind-validation harness
+    (scripts/score_vpn_catcher.py) needs data/processed/geo_ground_truth.csv to exist
+    after a normal pipeline run, and this is the only place that file gets written.
+    Planting itself never touches Contract A's column list — it only writes the
+    separate ground-truth CSV alongside it.
     """
     if rng is None:
         rng = np.random.default_rng(config.RANDOM_STATE)
@@ -355,7 +359,9 @@ def attach_network_layer(
     risky_pool = load_asn_ip_pool(config.RISKY_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
     residential_pool = load_asn_ip_pool(config.RESIDENTIAL_ASNS, config.GEOLITE_ASN_BLOCKS_CSV)
     # US-only residential sub-pool: Comcast (7922), AT&T (7018), Verizon (701).
-    # Used to skew licit IPs ~80% toward US CIDRs so geo_country reaches ~82% US.
+    # Licit transactions draw from this pool at P=0.70 (see generate_ip()); there is
+    # no fixed geo_country % target — the resulting country mix emerges from actual
+    # GeoLite2 data for whichever CIDRs get drawn.
     us_residential_pool = load_asn_ip_pool([7922, 7018, 701], config.GEOLITE_ASN_BLOCKS_CSV)
 
     if geo_index is None:

@@ -46,7 +46,9 @@ No paid tools, no GPU required — everything below runs fine on a CPU.
 - **Elliptic Data Set (Kaggle)** — https://www.kaggle.com/datasets/ellipticco/elliptic-data-set
   Real Bitcoin transaction graph: 203,769 transactions (nodes), 234,355 edges, labeled illicit/licit/unknown, 166 features per node, spans 49 time steps.
 - **Elliptic++ Dataset (GitHub)** — https://github.com/git-disl/EllipticPlusPlus
-  Extends the above with wallet/actor-level data: 822,942 wallet address occurrences (530,840 unique), each with 55 features, plus `AddrTx_edgelist.csv` / `TxAddr_edgelist.csv` linking wallets to transactions. **This is the piece that gives us actual wallet nodes**, not just anonymous transaction IDs — use both datasets together.
+  Extends the above with wallet/actor-level data: 822,942 wallet address occurrences (530,840 unique in the raw source), each with 55 features, plus `AddrTx_edgelist.csv` / `TxAddr_edgelist.csv` linking wallets to transactions. **This is an input source, not a Contract A output.**
+
+**Contract A output:** `data/processed/unified_dataset.csv` only. Its authoritative row count is the 203,769 Elliptic transaction nodes. Wallet-level CSVs, planted columns, and planted-wallet exports are not Contract A artifacts and must not be generated as parallel outputs.
 
 ### 4b. Synthetic network-layer data (we generate)
 

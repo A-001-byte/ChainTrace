@@ -1,0 +1,21 @@
+:root {
+  --bg-main: #0b0e14;
+  --bg-card: #121824;
+  --bg-card-hover: #1a2336;
+  --border-color: #232f48;
+
+  --accent-blue: #00b0ff;
+  --accent-cyan: #00e5ff;
+  --accent-purple: #7c4dff;
+
+  --success: #00e676;
+  --warning: #ff9100;
+  --danger: #ff1744;
+
+  --text-primary: #f0f4f8;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --font-sans: -apple-system, "Segoe UI", Inter, sans-serif;
+  --font-mono: "Consolas", "SFMono-Regular", monospace;
+}

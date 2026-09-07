@@ -266,6 +266,16 @@ def create_app() -> Flask:
     def index() -> Response:
         return send_from_directory(STATIC_DIR, "index.html")
 
+    @app.get("/app/")
+    @app.get("/app/<path:filename>")
+    def react_app(filename: str = "index.html") -> Response:
+        target = STATIC_DIR / "app" / filename
+        if not target.exists():
+            # SPA fallback: any unknown sub-path (e.g. browser refresh mid-navigation)
+            # still serves index.html so React's own routing can take over client-side.
+            return send_from_directory(STATIC_DIR / "app", "index.html")
+        return send_from_directory(STATIC_DIR / "app", filename)
+
     @app.get("/api/alerts")
     def api_alerts():
         tx_df, alerts_df, source_label, warnings = _active_datasets()

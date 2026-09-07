@@ -30,6 +30,16 @@ def main() -> None:
     )
     parser.add_argument("--top-n", type=int, default=config.TOP_N_ALERTS, help="Number of top alerts to show/save.")
     parser.add_argument(
+        "--unknown-only",
+        action="store_true",
+        help="Filter alerts to unknown nodes only (new discoveries, excluding already-known illicit/licit labels).",
+    )
+    parser.add_argument(
+        "--combined",
+        action="store_true",
+        help="Include both top-N known alerts and top-N unknown new discoveries in the output.",
+    )
+    parser.add_argument(
         "--save",
         action="store_true",
         help="Also write the full ranked alert list to outputs/alerts/ranked_alerts.csv",
@@ -44,7 +54,12 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logger = logging.getLogger(__name__)
 
-    graph, alerts = pipeline.run(sample_timesteps=args.sample_timesteps, top_n=args.top_n)
+    graph, alerts = pipeline.run(
+        sample_timesteps=args.sample_timesteps,
+        top_n=args.top_n,
+        unknown_only=args.unknown_only,
+        combined=args.combined,
+    )
 
     if not args.skip_intent:
         # Called after alerts already exist, purely additive — see intent_classifier.py's
@@ -63,7 +78,7 @@ def main() -> None:
     pd.set_option("display.max_colwidth", 80)
     pd.set_option("display.width", 200)
     print("\n=== ChainTrace — Top ranked alerts ===")
-    display_cols = ["node_id", "node_type", "label", "cluster_id", "risk_score", "reason"]
+    display_cols = ["node_id", "node_type", "label", "is_known_label", "cluster_id", "risk_score", "reason"]
     if not args.skip_intent:
         display_cols += ["intent_label", "intent_confidence"]
     print(alerts[display_cols].to_string(index=False))

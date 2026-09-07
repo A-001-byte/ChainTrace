@@ -28,6 +28,8 @@ def build_ranked_alerts(
     detection_results: list[DetectionResult],
     feature_frames: dict[str, pd.DataFrame],
     top_n: int = TOP_N_ALERTS,
+    unknown_only: bool = False,
+    combined: bool = False,
 ) -> pd.DataFrame:
     """Produce the ranked alert list — the Phase 2 checkpoint deliverable.
 
@@ -37,11 +39,13 @@ def build_ranked_alerts(
         feature_frames: node_type -> feature DataFrame, same one passed into score_node_type,
             reused here so explainability can compute percentiles without recomputing.
         top_n: how many top-ranked alerts to return.
+        unknown_only: if True, keep only nodes with label == 'unknown' (new leads).
+        combined: if True, include both top_n known and top_n unknown alerts in the result.
 
     Returns:
         DataFrame sorted by risk_score descending, columns:
-        node_id, node_type, label, cluster_id, classifier_confidence, anomaly_score,
-        risk_score, reason
+        node_id, node_type, label, is_known_label, cluster_id, classifier_confidence,
+        anomaly_score, risk_score, reason
     """
     cluster_ratios = illicit_ratio_per_cluster(graph)
     rows = []
@@ -63,11 +67,15 @@ def build_ranked_alerts(
             )
             risk_score = min(1.0, base_score + CLUSTER_RISK_BONUS * cluster_ratio)
 
+            raw_label = attrs.get("label", "unknown")
+            is_known = raw_label in ("illicit", "licit")
+
             rows.append(
                 {
                     "node_id": node_id,
                     "node_type": result.node_type,
-                    "label": attrs.get("label", "unknown"),
+                    "label": raw_label,
+                    "is_known_label": is_known,
                     "cluster_id": cluster_id,
                     "cluster_ratio": cluster_ratio,
                     "classifier_confidence": round(classifier_confidence, 4),
@@ -77,8 +85,21 @@ def build_ranked_alerts(
             )
 
     all_alerts = pd.DataFrame(rows).sort_values("risk_score", ascending=False).reset_index(drop=True)
-    logger.info("Scored %d total nodes, explaining top %d", len(all_alerts), min(top_n, len(all_alerts)))
-    top_alerts = all_alerts.head(top_n).copy()
+    if unknown_only:
+        top_alerts = all_alerts[~all_alerts["is_known_label"]].head(top_n).copy()
+    elif combined:
+        known_top = all_alerts[all_alerts["is_known_label"]].head(top_n)
+        unknown_top = all_alerts[~all_alerts["is_known_label"]].head(top_n)
+        top_alerts = (
+            pd.concat([known_top, unknown_top])
+            .drop_duplicates(subset=["node_id"])
+            .sort_values("risk_score", ascending=False)
+            .reset_index(drop=True)
+        )
+    else:
+        top_alerts = all_alerts.head(top_n).copy()
+
+    logger.info("Scored %d total nodes, explaining %d alerts", len(all_alerts), len(top_alerts))
 
     results_by_type = {r.node_type: r for r in detection_results}
     reasons = []

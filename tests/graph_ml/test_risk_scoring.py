@@ -52,3 +52,38 @@ def test_build_ranked_alerts_surfaces_illicit_nodes_near_the_top(synthetic_nodes
     # With a strong synthetic illicit signal, the top-10 ranked alerts should be
     # dominated by illicit-labeled nodes, not unknown/licit ones.
     assert (alerts["label"] == "illicit").sum() >= 7
+
+
+def test_build_ranked_alerts_includes_is_known_label_column(synthetic_nodes_df, synthetic_edges_df):
+    graph = build_transaction_graph(synthetic_nodes_df, synthetic_edges_df)
+    detect_communities(graph)
+    detection_results, feature_frames = _run_detection(graph)
+
+    alerts = build_ranked_alerts(graph, detection_results, feature_frames, top_n=10)
+    assert "is_known_label" in alerts.columns
+    # Known illicit should be True, unknown should be False
+    for _, row in alerts.iterrows():
+        expected_known = row["label"] in ("illicit", "licit")
+        assert row["is_known_label"] == expected_known
+
+
+def test_build_ranked_alerts_unknown_only_returns_only_unknown_nodes(synthetic_nodes_df, synthetic_edges_df):
+    graph = build_transaction_graph(synthetic_nodes_df, synthetic_edges_df)
+    detect_communities(graph)
+    detection_results, feature_frames = _run_detection(graph)
+
+    alerts = build_ranked_alerts(graph, detection_results, feature_frames, top_n=5, unknown_only=True)
+    assert len(alerts) == 5
+    assert (alerts["label"] == "unknown").all()
+    assert (~alerts["is_known_label"]).all()
+
+
+def test_build_ranked_alerts_combined_contains_both_populations(synthetic_nodes_df, synthetic_edges_df):
+    graph = build_transaction_graph(synthetic_nodes_df, synthetic_edges_df)
+    detect_communities(graph)
+    detection_results, feature_frames = _run_detection(graph)
+
+    alerts = build_ranked_alerts(graph, detection_results, feature_frames, top_n=5, combined=True)
+    assert any(alerts["is_known_label"])
+    assert any(~alerts["is_known_label"])
+

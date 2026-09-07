@@ -4,19 +4,19 @@ import { motionTokens } from "../../lib/motionTokens";
 export default function GeoBar({ label, flaggedCount, avgRisk, maxRisk, maxCount }) {
   const reduceMotion = useReducedMotion();
   const fraction = maxCount > 0 ? flaggedCount / maxCount : 0;
-  let barColor = "var(--success)";
-  if (avgRisk >= 0.8) barColor = "var(--danger)";
-  else if (avgRisk >= 0.6) barColor = "var(--warning)";
+  let barColor = "var(--risk-low)";
+  if (avgRisk >= 0.6) barColor = "var(--risk-high)";
+  else if (avgRisk >= 0.4) barColor = "var(--risk-medium)";
 
   return (
-    <div style={{ marginBottom: "0.6rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.2rem" }}>
-        <span style={{ color: "var(--text-primary)" }}>{label}</span>
-        <span style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
+    <div style={{ marginBottom: "var(--spacing-12)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-caption)", marginBottom: "var(--spacing-4)" }}>
+        <span style={{ color: "var(--color-mist)" }}>{label}</span>
+        <span className="mono" style={{ color: "var(--color-ash)" }}>
           {flaggedCount} flagged · avg {avgRisk?.toFixed(2) ?? "-"} · max {maxRisk?.toFixed(2) ?? "-"}
         </span>
       </div>
-      <div style={{ background: "var(--bg-main)", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
+      <div style={{ background: "var(--color-void)", borderRadius: "var(--radius-pills)", height: "4px", overflow: "hidden" }}>
         {/* The bar is laid out at full width and scaled down on the X axis, so growth is a
             GPU-composited transform rather than an animated width. */}
         <motion.div
@@ -27,7 +27,7 @@ export default function GeoBar({ label, flaggedCount, avgRisk, maxRisk, maxCount
             ease: motionTokens.easing.smooth,
           }}
           style={{
-            width: "100%", height: "100%", background: barColor, borderRadius: "4px",
+            width: "100%", height: "100%", background: barColor, borderRadius: "var(--radius-pills)",
             transformOrigin: "left",
           }}
         />

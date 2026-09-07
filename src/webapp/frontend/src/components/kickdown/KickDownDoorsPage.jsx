@@ -107,7 +107,7 @@ export default function KickDownDoorsPage({ selectedNodeId, onSelectNode }) {
               <div style={{
                 display: "inline-block", padding: "0.3rem 0.7rem", borderRadius: "var(--radius-sm)",
                 background: "var(--signal-dim)", border: "1px solid var(--signal-line)",
-                color: "var(--signal)", fontSize: "var(--text-2xs)", fontWeight: 700,
+                color: "var(--signal)", fontSize: "var(--text-caption)", fontWeight: "var(--weight-semi)",
                 letterSpacing: "var(--tracking-wide)", marginBottom: "var(--space-4)",
               }}>
                 LOCAL DISRUPTION ANALYSIS
@@ -155,13 +155,13 @@ export default function KickDownDoorsPage({ selectedNodeId, onSelectNode }) {
                                 {n.node_id}
                               </td>
                               <td>{n.node_type}</td>
-                              <td className="mono" style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+                              <td className="mono" style={{ color: "var(--color-bone)", fontWeight: "var(--weight-medium)" }}>
                                 {n.impact_score.toFixed(3)}
                               </td>
                               <td className="mono">{n.betweenness.toFixed(4)}</td>
                               <td>
                                 {n.is_articulation_point
-                                  ? <span style={{ color: "var(--signal)", fontWeight: 700 }}>Yes</span>
+                                  ? <span style={{ color: "var(--signal)", fontWeight: "var(--weight-semi)" }}>Yes</span>
                                   : <span style={{ color: "var(--text-faint)" }}>No</span>}
                               </td>
                             </motion.tr>

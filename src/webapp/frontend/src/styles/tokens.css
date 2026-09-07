@@ -1,98 +1,164 @@
 :root {
-  /* --- Surfaces -------------------------------------------------------------
-     A deliberate depth ladder instead of one flat grey with borders everywhere.
-     Depth is carried by *elevation* (surface lightness + shadow), so borders can
-     be reserved for genuine separation rather than doing all the work. */
-  --bg-base:      #070a10;  /* app floor -- deepest, behind everything */
-  --bg-canvas:    #0b0f17;  /* content region */
-  --surface-1:    #111725;  /* resting panels */
-  --surface-2:    #17203200; /* (unused alpha guard -- see --surface-2-solid) */
-  --surface-2-solid: #172032; /* raised panels: cards, table headers */
-  --surface-3:    #1e2a41;  /* hover / active surface */
-  --surface-sunken: #090d14; /* wells: graph canvas, code, chart tracks */
+  /* ============================================================================
+     SOURCE DESIGN SYSTEM — values below are exact, do not approximate.
+     Surface hierarchy: Void (app floor) -> Carbon (cards) -> Obsidian (drawer).
+     ============================================================================ */
+  --color-void: #08090a;
+  --color-carbon: #0f1011;
+  --color-obsidian: #161718;
+  --color-graphite: #23252a;
+  --color-smoke: #383b3f;
+  --color-ash: #62666d;
+  --color-fog: #8a8f98;
+  --color-mist: #d0d6e0;
+  --color-bone: #e5e5e6;
+  --color-paper: #ffffff;
+  --color-acid-lime: #e4f222;
+  --color-pulse-green: #27a644;
+  --color-coral-red: #eb5757;
+  --color-signal-teal: #02b8cc;
+  --color-iris-violet: #6366f1;
+  --color-lavender: #8b5cf6;
 
-  /* Borders: hairlines, not boxes. Only --border-strong should ever read as a line. */
-  --border-subtle: #1b2333;
-  --border:        #232f48;
-  --border-strong: #33425f;
+  --font-inter-variable: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-berkeley-mono: 'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* --- Text ---------------------------------------------------------------- */
-  --text-primary:   #eef2f8;
-  --text-secondary: #9fb0c9;
-  --text-muted:     #6b7c96;
-  --text-faint:     #47566e;
+  --text-caption: 13px; --leading-caption: 1.2;
+  --text-body-sm: 15px; --leading-body-sm: 1.6; --tracking-body-sm: -0.165px;
+  --text-body-lg: 20px; --leading-body-lg: 1.33; --tracking-body-lg: -0.24px;
+  --text-subheading: 24px; --leading-subheading: 1.33; --tracking-subheading: -0.288px;
+  --text-heading-sm: 32px; --leading-heading-sm: 1.13; --tracking-heading-sm: -0.704px;
+  --text-heading: 48px; --leading-heading: 1; --tracking-heading: -1.056px;
+  --text-heading-lg: 64px; --leading-heading-lg: 1; --tracking-heading-lg: -1.408px;
+  --text-display: 72px; --leading-display: 1; --tracking-display: -1.584px;
 
-  /* --- Accent -------------------------------------------------------------
-     Cyan is the product's identity, used for structure/wayfinding (active nav,
-     section headers, focus rings) -- never for risk. Risk has its own scale
-     below, so a red thing always means "elevated risk" and never "decoration". */
-  --accent:         #22d3ee;
-  --accent-strong:  #67e8f9;
-  --accent-dim:     rgba(34, 211, 238, 0.14);
-  --accent-line:    rgba(34, 211, 238, 0.32);
+  --spacing-4: 4px; --spacing-8: 8px; --spacing-12: 12px; --spacing-16: 16px;
+  --spacing-20: 20px; --spacing-24: 24px; --spacing-32: 32px; --spacing-48: 48px;
+  --spacing-96: 96px;
 
-  /* --- Risk scale (semantic; reserved) ------------------------------------- */
-  --risk-critical: #ff2d55;
-  --risk-high:     #ff6b35;
-  --risk-medium:   #ffb020;
-  --risk-low:      #22c55e;
-  --risk-none:     #64748b;
+  --radius-cards: 12px; --radius-pills: 9999px; --radius-badges: 4px;
+  --radius-inputs: 6px; --radius-buttons: 6px; --radius-small: 2px;
 
-  --risk-critical-dim: rgba(255, 45, 85, 0.13);
-  --risk-high-dim:     rgba(255, 107, 53, 0.13);
-  --risk-medium-dim:   rgba(255, 176, 32, 0.13);
-  --risk-low-dim:      rgba(34, 197, 94, 0.13);
+  --shadow-sm: rgba(0,0,0,0.4) 0px 2px 4px 0px;
+  --shadow-subtle: rgb(35,37,42) 0px 0px 0px 1px inset;
+  --shadow-xl: rgba(8,9,10,0.6) 0px 4px 32px 0px;
 
-  /* Signal colour for the geo-temporal / evasion USP -- amber, distinct from risk red */
-  --signal:      #ffb020;
-  --signal-dim:  rgba(255, 176, 32, 0.10);
-  --signal-line: rgba(255, 176, 32, 0.45);
+  /* --- Weights: 400 / 510 / 590 only. Never 700+. ------------------------- */
+  --weight-regular: 400;
+  --weight-medium: 510;
+  --weight-semi: 590;
 
-  /* --- Legacy aliases -------------------------------------------------------
-     Older components still reference these names; mapped onto the new system so
-     nothing renders unstyled mid-redesign. */
-  --bg-main:        var(--bg-canvas);
-  --bg-card:        var(--surface-1);
-  --bg-card-hover:  var(--surface-3);
-  --border-color:   var(--border);
-  --accent-cyan:    var(--accent);
-  --accent-blue:    #38bdf8;
-  --accent-purple:  #a78bfa;
-  --success:        var(--risk-low);
-  --warning:        var(--signal);
-  --danger:         var(--risk-critical);
+  /* ============================================================================
+     SEMANTIC EXCEPTIONS (deliberate departures from the source system)
+     ============================================================================ */
 
-  /* --- Typographic scale --------------------------------------------------- */
-  --text-2xs: 0.68rem;
-  --text-xs:  0.75rem;
-  --text-sm:  0.82rem;
-  --text-base: 0.9rem;
-  --text-lg:  1.05rem;
-  --text-xl:  1.35rem;
-  --text-2xl: 1.75rem;
-  --text-3xl: 2.4rem;
+  /* 1. Acid Lime is the ONLY action/interactive accent. Never risk/status. */
+  --action: var(--color-acid-lime);
+  --action-ink: #08090a;                         /* text ON acid lime */
+  --action-tint: rgba(228, 242, 34, 0.05);
+  --action-line: rgba(228, 242, 34, 0.32);
 
-  --tracking-wide: 0.08em;
-  --tracking-tight: -0.02em;
+  /* 2. Risk severity keeps semantic colour, held separate from the action accent.
+        Amber is desaturated to sit at the same weight as coral-red/pulse-green
+        rather than a bright orange that would clash with the muted palette. */
+  --risk-high: var(--color-coral-red);           /* #eb5757 */
+  --risk-medium: #d99a4e;                        /* muted amber, matched weight */
+  --risk-low: var(--color-pulse-green);          /* #27a644 */
+  --risk-none: var(--color-ash);
 
-  /* --- Space scale --------------------------------------------------------- */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.5rem;
-  --space-6: 2rem;
-  --space-7: 3rem;
+  --risk-high-tint: rgba(235, 87, 87, 0.05);
+  --risk-medium-tint: rgba(217, 154, 78, 0.05);
+  --risk-low-tint: rgba(39, 166, 68, 0.05);
 
-  --radius-sm: 6px;
-  --radius:    10px;
-  --radius-lg: 14px;
+  --risk-high-line: rgba(235, 87, 87, 0.28);
+  --risk-medium-line: rgba(217, 154, 78, 0.28);
+  --risk-low-line: rgba(39, 166, 68, 0.28);
 
-  /* Elevation does the separating that borders used to. */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 4px 16px -4px rgba(0, 0, 0, 0.55);
-  --shadow-3: 0 18px 48px -12px rgba(0, 0, 0, 0.7);
+  /* Geo-temporal mismatch is a risk-family signal, not an action -> amber. */
+  --signal: var(--risk-medium);
+  --signal-tint: var(--risk-medium-tint);
+  --signal-line: var(--risk-medium-line);
 
-  --font-sans: -apple-system, "Segoe UI", Inter, sans-serif;
-  --font-mono: "JetBrains Mono", "Consolas", "SFMono-Regular", monospace;
+  /* 3. Iris Violet / Lavender for categorical tag & badge fills (intent archetypes). */
+  --tag-violet: var(--color-iris-violet);
+  --tag-lavender: var(--color-lavender);
+  --tag-teal: var(--color-signal-teal);
+
+  /* --- Input spec ---------------------------------------------------------- */
+  --input-bg: rgba(255, 255, 255, 0.02);
+  --input-border: rgba(255, 255, 255, 0.08);
+
+  /* ============================================================================
+     Legacy aliases — older component styles still reference these names. Mapped
+     onto the system above so nothing renders off-palette during the restyle.
+     ============================================================================ */
+  --bg-base: var(--color-void);
+  --bg-canvas: var(--color-void);
+  --bg-main: var(--color-void);
+  --surface-1: var(--color-carbon);
+  --surface-2-solid: var(--color-obsidian);
+  --surface-3: var(--color-graphite);
+  --surface-sunken: var(--color-void);
+  --bg-card: var(--color-carbon);
+  --bg-card-hover: var(--color-graphite);
+
+  --border-subtle: var(--color-graphite);
+  --border: var(--color-graphite);
+  --border-strong: var(--color-smoke);
+  --border-color: var(--color-graphite);
+
+  --text-primary: var(--color-bone);
+  --text-secondary: var(--color-mist);
+  --text-muted: var(--color-fog);
+  --text-faint: var(--color-ash);
+
+  --accent: var(--color-acid-lime);
+  --accent-strong: var(--color-acid-lime);
+  --accent-dim: var(--action-tint);
+  --accent-line: var(--action-line);
+  --accent-cyan: var(--color-acid-lime);
+  --accent-blue: var(--color-signal-teal);
+  --accent-purple: var(--color-lavender);
+
+  --risk-critical: var(--risk-high);
+  --risk-critical-dim: var(--risk-high-tint);
+  --risk-high-dim: var(--risk-high-tint);
+  --risk-medium-dim: var(--risk-medium-tint);
+  --risk-low-dim: var(--risk-low-tint);
+  --success: var(--risk-low);
+  --warning: var(--signal);
+  --danger: var(--risk-high);
+  --signal-dim: var(--signal-tint);
+
+  /* Old size aliases mapped onto the new scale. */
+  --text-2xs: var(--text-caption);
+  --text-xs: var(--text-caption);
+  --text-sm: var(--text-body-sm);
+  --text-base: var(--text-body-sm);
+  --text-lg: var(--text-body-lg);
+  --text-xl: var(--text-subheading);
+  --text-2xl: var(--text-heading-sm);
+  --text-3xl: var(--text-heading);
+
+  --tracking-wide: 0.06em;
+  --tracking-tight: -0.022em;
+
+  --space-1: var(--spacing-4);
+  --space-2: var(--spacing-8);
+  --space-3: var(--spacing-12);
+  --space-4: var(--spacing-16);
+  --space-5: var(--spacing-24);
+  --space-6: var(--spacing-32);
+  --space-7: var(--spacing-48);
+
+  --radius-sm: var(--radius-inputs);
+  --radius: var(--radius-cards);
+  --radius-lg: var(--radius-cards);
+
+  --shadow-1: var(--shadow-sm);
+  --shadow-2: var(--shadow-sm);
+  --shadow-3: var(--shadow-xl);
+
+  --font-sans: var(--font-inter-variable);
+  --font-mono: var(--font-berkeley-mono);
 }

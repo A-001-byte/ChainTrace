@@ -8,9 +8,9 @@ export default function AlertsPage({ onSelectNode }) {
 
   if (error) {
     return (
-      <div className="panel" style={{ padding: "var(--space-5)", borderStyle: "dashed" }}>
-        <h3 style={{ color: "var(--signal)", marginBottom: "var(--space-2)" }}>Data Source Unavailable</h3>
-        <p style={{ color: "var(--text-secondary)" }}>{error}</p>
+      <div className="panel" style={{ padding: "var(--spacing-32)" }}>
+        <h3 style={{ color: "var(--signal)", marginBottom: "var(--spacing-8)" }}>Data Source Unavailable</h3>
+        <p style={{ color: "var(--color-fog)" }}>{error}</p>
       </div>
     );
   }
@@ -34,20 +34,20 @@ export default function AlertsPage({ onSelectNode }) {
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
-        gap: "var(--space-4)",
+        gap: "var(--spacing-24)",
         alignItems: "start",
       }}>
         <AlertsTable
           title="Wallets"
           subtitle="Addresses ranked by composite risk score"
-          accent="var(--accent-purple)"
+          accent="var(--color-lavender)"
           rows={wallets}
           onSelectRow={onSelectNode}
         />
         <AlertsTable
           title="Transactions"
           subtitle="Flagged transactions — kept visible, not buried under wallets"
-          accent="var(--accent-blue)"
+          accent="var(--color-signal-teal)"
           rows={txs}
           onSelectRow={onSelectNode}
         />

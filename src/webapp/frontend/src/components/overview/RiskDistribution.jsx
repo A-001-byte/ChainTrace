@@ -3,8 +3,9 @@ import { motionTokens } from "../../lib/motionTokens";
 import { RISK_TIERS } from "../../lib/risk";
 
 /**
- * Risk distribution as an actual proportional bar rather than "50 high / 0 medium / 0 low"
- * as text. Growth uses transform: scaleX from the left (the GeoBar pattern), never width.
+ * Risk distribution as a proportional bar rather than "50 high / 0 medium / 0 low" as
+ * text. Growth uses transform: scaleX from the left, never width.
+ * Colours are risk-semantic (coral / amber / green) — never the acid-lime action accent.
  */
 export default function RiskDistribution({ counts, total }) {
   const reduceMotion = useReducedMotion();
@@ -18,17 +19,16 @@ export default function RiskDistribution({ counts, total }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--space-3)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--spacing-16)" }}>
         <span className="eyebrow">Risk Distribution</span>
-        <span className="mono" style={{ fontSize: "var(--text-xs)", color: "var(--text-faint)" }}>
-          {total ?? sum} flagged entities
+        <span className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)" }}>
+          {total ?? sum} flagged
         </span>
       </div>
 
-      {/* Stacked proportional bar */}
       <div style={{
-        display: "flex", height: 10, borderRadius: 5, overflow: "hidden",
-        background: "var(--surface-sunken)", gap: 2,
+        display: "flex", height: 8, borderRadius: "var(--radius-pills)", overflow: "hidden",
+        background: "var(--color-void)", gap: 2,
       }}>
         {segments.map((s, i) => (
           <div key={s.key} style={{ flex: s.count / sum, minWidth: s.count > 0 ? 4 : 0, overflow: "hidden" }}>
@@ -46,15 +46,15 @@ export default function RiskDistribution({ counts, total }) {
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: "var(--space-4)", marginTop: "var(--space-3)", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "var(--spacing-20)", marginTop: "var(--spacing-16)", flexWrap: "wrap" }}>
         {segments.map((s) => (
-          <div key={s.key} style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>{s.label}</span>
-            <span className="mono" style={{ fontSize: "var(--text-xs)", color: "var(--text-primary)", fontWeight: 600 }}>
+          <div key={s.key} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-8)" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "var(--radius-pills)", background: s.color, flexShrink: 0 }} />
+            <span style={{ fontSize: "var(--text-caption)", color: "var(--color-fog)" }}>{s.label}</span>
+            <span className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--color-bone)", fontWeight: "var(--weight-medium)" }}>
               {s.count}
             </span>
-            <span className="mono" style={{ fontSize: "var(--text-2xs)", color: "var(--text-faint)" }}>
+            <span className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)" }}>
               {((s.count / sum) * 100).toFixed(0)}%
             </span>
           </div>

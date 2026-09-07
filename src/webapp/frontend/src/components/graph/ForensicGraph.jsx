@@ -13,7 +13,7 @@ import { clusterColor } from "../../lib/clusterColors";
  *   colour  -> cluster_id (categorical palette; context nodes stay slate)
  *   size    -> risk_score
  *   shape   -> wallet (dot) vs tx (square/diamond)
- *   border  -> geo-temporal mismatch gets an amber ring (the USP signal)
+ *   border  -> geo-temporal mismatch gets a muted-amber ring (#d99a4e, risk family)
  */
 export default function ForensicGraph({ data, focusNodeId, onSelectNode, height = "68vh" }) {
   const containerRef = useRef(null);
@@ -49,16 +49,16 @@ export default function ForensicGraph({ data, focusNodeId, onSelectNode, height 
         shape: n.node_type === "tx" ? "square" : "dot",
         size,
         color: {
-          background: isContext ? "#243149" : base,
-          border: n.geo_temporal_flag ? "#ffb020" : (isContext ? "#2c3a55" : base),
-          highlight: { background: base, border: "#67e8f9" },
-          hover: { background: base, border: "#67e8f9" },
+          background: isContext ? "#1c1e22" : base,
+          border: n.geo_temporal_flag ? "#d99a4e" : (isContext ? "#23252a" : base),
+          highlight: { background: base, border: "#e4f222" },
+          hover: { background: base, border: "#e4f222" },
         },
         borderWidth: n.geo_temporal_flag ? 4 : (isContext ? 1 : 2),
         // vis-network renders `title` as its own tooltip; \n is preserved.
         title: tooltipLines.join("\n"),
         label: isContext ? undefined : `${n.id.slice(0, 10)}…`,
-        font: { color: "#9fb0c9", size: 11, face: "Consolas, monospace", strokeWidth: 0 },
+        font: { color: "#8a8f98", size: 11, face: "ui-monospace, Menlo, Consolas, monospace", strokeWidth: 0 },
         opacity: isContext ? 0.55 : 1,
         _isContext: isContext,
       };
@@ -68,7 +68,7 @@ export default function ForensicGraph({ data, focusNodeId, onSelectNode, height 
       id: `e${i}`,
       from: e.from,
       to: e.to,
-      color: { color: "#22304a", highlight: "#22d3ee", opacity: 0.7 },
+      color: { color: "#23252a", highlight: "#e4f222", opacity: 0.8 },
       width: 1,
     }));
 

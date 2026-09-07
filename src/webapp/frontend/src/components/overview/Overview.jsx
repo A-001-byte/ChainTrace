@@ -26,36 +26,36 @@ function ClusterSummary({ rows }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--space-3)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--spacing-16)" }}>
         <span className="eyebrow">Cluster Concentration</span>
-        <span className="mono" style={{ fontSize: "var(--text-xs)", color: "var(--text-faint)" }}>
+        <span className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)" }}>
           {clusters.length} clusters
         </span>
       </div>
 
       {top.length === 0 ? (
-        <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>No cluster assignments available.</p>
+        <p style={{ color: "var(--color-ash)", fontSize: "var(--text-caption)" }}>No cluster assignments available.</p>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-8)" }}>
           {top.map((c) => (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-              <span className="mono" style={{ fontSize: "var(--text-2xs)", color: clusterColor(c.id), minWidth: "2.6rem" }}>
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-12)" }}>
+              <span className="mono" style={{ fontSize: "var(--text-caption)", color: clusterColor(c.id), minWidth: "2.4rem" }}>
                 c{c.id}
               </span>
-              <div style={{ flex: 1, height: 6, background: "var(--surface-sunken)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ flex: 1, height: 4, background: "var(--color-void)", borderRadius: "var(--radius-pills)", overflow: "hidden" }}>
                 <div style={{
                   width: `${(c.count / maxCount) * 100}%`, height: "100%",
-                  background: clusterColor(c.id), borderRadius: 3, opacity: 0.85,
+                  background: clusterColor(c.id), borderRadius: "var(--radius-pills)",
                 }} />
               </div>
-              <span className="mono" style={{ fontSize: "var(--text-2xs)", color: "var(--text-secondary)", minWidth: "1.6rem", textAlign: "right" }}>
+              <span className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--color-fog)", minWidth: "1.4rem", textAlign: "right" }}>
                 {c.count}
               </span>
             </div>
           ))}
         </div>
       )}
-      <p style={{ fontSize: "var(--text-2xs)", color: "var(--text-faint)", marginTop: "var(--space-3)", lineHeight: 1.5 }}>
+      <p style={{ fontSize: "var(--text-caption)", lineHeight: 1.5, color: "var(--color-ash)", marginTop: "var(--spacing-16)" }}>
         Louvain communities among flagged entities — concentration indicates coordinated
         rather than isolated activity.
       </p>
@@ -69,16 +69,16 @@ export default function Overview({ onSelectEntity, onNavigate }) {
   const { data: alertsData } = useAlerts();
 
   if (loading) {
-    return <p style={{ color: "var(--text-muted)" }}>Loading overview…</p>;
+    return <p style={{ color: "var(--color-ash)" }}>Loading overview…</p>;
   }
 
   // Genuine network/parse failure — fetch() itself threw. Still a real possibility
   // (server not running, malformed JSON), so this branch stays.
   if (error) {
     return (
-      <div className="panel" style={{ padding: "var(--space-5)", borderStyle: "dashed" }}>
-        <h3 style={{ color: "var(--signal)", marginBottom: "var(--space-2)" }}>Data Source Unavailable</h3>
-        <p style={{ color: "var(--text-secondary)" }}>{error}</p>
+      <div className="panel" style={{ padding: "var(--spacing-32)" }}>
+        <h3 style={{ color: "var(--signal)", marginBottom: "var(--spacing-8)" }}>Data Source Unavailable</h3>
+        <p style={{ color: "var(--color-fog)" }}>{error}</p>
       </div>
     );
   }
@@ -93,28 +93,26 @@ export default function Overview({ onSelectEntity, onNavigate }) {
 
   return (
     <div>
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--spacing-24)" }}>
         <div>
-          <h2>Command Overview</h2>
+          <h1 style={{ color: "var(--color-paper)" }}>Command Overview</h1>
           <p className="lede">
             Live posture across the scored Bitcoin transaction graph — flagged entities,
             how risk is distributed, and where coordinated cluster activity is concentrated.
           </p>
         </div>
-        <span style={{
-          fontSize: "var(--text-2xs)", padding: "0.3rem 0.7rem", borderRadius: 20,
-          fontWeight: 600, letterSpacing: "var(--tracking-wide)", textTransform: "uppercase",
-          flexShrink: 0, whiteSpace: "nowrap",
-          color: isMock ? "var(--signal)" : "var(--risk-low)",
-          background: isMock ? "var(--signal-dim)" : "var(--risk-low-dim)",
-          border: `1px solid ${isMock ? "var(--signal-line)" : "rgba(34,197,94,0.3)"}`,
+        <span className="badge" style={{
+          flexShrink: 0,
+          color: isMock ? "var(--signal)" : "var(--color-pulse-green)",
+          background: isMock ? "var(--signal-tint)" : "var(--risk-low-tint)",
+          boxShadow: `${isMock ? "var(--signal-line)" : "var(--risk-low-line)"} 0px 0px 0px 1px inset`,
         }}>
           {isMock ? "Offline Mock Data" : "Live Dataset"}
         </span>
       </div>
 
       {data.warnings?.length > 0 && (
-        <p style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)", marginBottom: "var(--space-4)" }}>
+        <p style={{ color: "var(--color-ash)", fontSize: "var(--text-caption)", marginBottom: "var(--spacing-24)" }}>
           {data.warnings.join(" ")}
         </p>
       )}
@@ -128,66 +126,49 @@ export default function Overview({ onSelectEntity, onNavigate }) {
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          gap: "var(--space-4)",
-          marginTop: "var(--space-4)",
+          gap: "var(--spacing-24)",
+          marginTop: "var(--spacing-48)",
         }}
       >
-        <motion.div
-          variants={panelReveal}
-          transition={{ duration: reduceMotion ? motionTokens.duration.fast : motionTokens.duration.normal, ease: motionTokens.easing.smooth }}
-          className="panel"
-          style={{ padding: "var(--space-4)" }}
-        >
-          <RiskDistribution counts={data.risk_tier_counts} total={data.total_flagged} />
-        </motion.div>
-
-        <motion.div
-          variants={panelReveal}
-          transition={{ duration: reduceMotion ? motionTokens.duration.fast : motionTokens.duration.normal, ease: motionTokens.easing.smooth }}
-          className="panel"
-          style={{ padding: "var(--space-4)" }}
-        >
-          <TopEntitiesPreview
-            rows={rows}
-            onSelectEntity={onSelectEntity}
-            onViewAll={() => onNavigate?.("alerts")}
-          />
-        </motion.div>
-
-        <motion.div
-          variants={panelReveal}
-          transition={{ duration: reduceMotion ? motionTokens.duration.fast : motionTokens.duration.normal, ease: motionTokens.easing.smooth }}
-          className="panel"
-          style={{ padding: "var(--space-4)" }}
-        >
-          <ClusterSummary rows={rows} />
-        </motion.div>
+        {[
+          <RiskDistribution key="risk" counts={data.risk_tier_counts} total={data.total_flagged} />,
+          <TopEntitiesPreview key="top" rows={rows} onSelectEntity={onSelectEntity} onViewAll={() => onNavigate?.("alerts")} />,
+          <ClusterSummary key="clusters" rows={rows} />,
+        ].map((child, i) => (
+          <motion.div
+            key={i}
+            variants={panelReveal}
+            transition={{ duration: reduceMotion ? motionTokens.duration.fast : motionTokens.duration.normal, ease: motionTokens.easing.smooth }}
+            className="panel"
+            style={{ padding: "var(--spacing-20)" }}
+          >
+            {child}
+          </motion.div>
+        ))}
       </motion.div>
 
-      <div style={{
-        display: "flex", gap: "var(--space-5)", flexWrap: "wrap",
-        marginTop: "var(--space-4)", padding: "var(--space-4)",
-      }} className="panel">
-        <div>
-          <div className="eyebrow">Transactions Scanned</div>
-          <div className="mono" style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginTop: 4 }}>
-            {data.total_transactions?.toLocaleString()}
+      <div className="panel" style={{
+        display: "flex", gap: "var(--spacing-48)", flexWrap: "wrap", alignItems: "center",
+        marginTop: "var(--spacing-24)", padding: "var(--spacing-20)",
+      }}>
+        {[
+          ["Transactions Scanned", data.total_transactions?.toLocaleString()],
+          ["Distinct Clusters (flagged)", data.distinct_clusters],
+          ["Avg Confidence (flagged)", `${data.flagged_avg_confidence_pct}%`],
+        ].map(([label, value]) => (
+          <div key={label}>
+            <div className="eyebrow">{label}</div>
+            <div className="mono" style={{
+              fontSize: "var(--text-body-lg)", lineHeight: "var(--leading-body-lg)",
+              letterSpacing: "var(--tracking-body-lg)", fontWeight: "var(--weight-medium)",
+              color: "var(--color-bone)", marginTop: "var(--spacing-4)",
+            }}>
+              {value}
+            </div>
           </div>
-        </div>
-        <div>
-          <div className="eyebrow">Distinct Clusters (flagged)</div>
-          <div className="mono" style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginTop: 4 }}>
-            {data.distinct_clusters}
-          </div>
-        </div>
-        <div>
-          <div className="eyebrow">Avg Confidence (flagged)</div>
-          <div className="mono" style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginTop: 4 }}>
-            {data.flagged_avg_confidence_pct}%
-          </div>
-        </div>
-        <button className="btn btn-accent" style={{ marginLeft: "auto", alignSelf: "center" }} onClick={() => onNavigate?.("graph")}>
-          Open forensic graph →
+        ))}
+        <button className="btn btn-accent" style={{ marginLeft: "auto" }} onClick={() => onNavigate?.("graph")}>
+          Open forensic graph
         </button>
       </div>
     </div>

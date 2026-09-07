@@ -3,16 +3,27 @@ import EntitySearch from "../shared/EntitySearch";
 export default function TopBar({ onLookupEntity }) {
   return (
     <header className="topbar">
-      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", flexShrink: 0 }}>
-        <strong style={{ fontSize: "var(--text-lg)", letterSpacing: "var(--tracking-tight)" }}>
-          Chain<span style={{ color: "var(--accent)" }}>Trace</span>
-        </strong>
-        <span style={{ color: "var(--text-faint)", fontSize: "var(--text-2xs)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--spacing-12)", flexShrink: 0 }}>
+        <span style={{
+          fontSize: "var(--text-body-lg)",
+          lineHeight: "var(--leading-body-lg)",
+          letterSpacing: "var(--tracking-body-lg)",
+          fontWeight: "var(--weight-semi)",
+          color: "var(--color-paper)",
+        }}>
+          ChainTrace
+        </span>
+        <span style={{
+          color: "var(--color-ash)",
+          fontSize: "var(--text-caption)",
+          lineHeight: "var(--leading-caption)",
+          fontWeight: "var(--weight-regular)",
+        }}>
           Bitcoin Forensics &amp; Threat Intelligence
         </span>
       </div>
 
-      <div style={{ display: "flex", gap: "var(--space-4)", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: "var(--spacing-20)", alignItems: "center" }}>
         <EntitySearch onSubmit={onLookupEntity} />
         <span className="status-badge"><span className="dot" /> System Operational</span>
       </div>

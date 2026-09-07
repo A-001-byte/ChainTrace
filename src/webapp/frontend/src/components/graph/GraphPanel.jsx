@@ -8,7 +8,7 @@ const ForensicGraph = lazy(() => import("./ForensicGraph"));
 
 function LegendSwatch({ color, border, shape = "dot", children }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "var(--text-caption)", color: "var(--color-fog)" }}>
       <span style={{
         width: 11, height: 11, background: color,
         border: border ? `2px solid ${border}` : "none",
@@ -42,8 +42,8 @@ export default function GraphPanel({ focusNodeId, onSelectNode }) {
         </div>
         {focusNodeId && (
           <span className="mono" style={{
-            fontSize: "var(--text-xs)", color: "var(--accent-strong)",
-            background: "var(--accent-dim)", border: "1px solid var(--accent-line)",
+            fontSize: "var(--text-xs)", color: "var(--color-mist)",
+            background: "rgba(255,255,255,0.02)", boxShadow: "var(--color-graphite) 0px 0px 0px 1px inset",
             borderRadius: "var(--radius-sm)", padding: "0.35rem 0.7rem", maxWidth: "40%",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0,
           }}>
@@ -69,11 +69,11 @@ export default function GraphPanel({ focusNodeId, onSelectNode }) {
             borderBottom: "1px solid var(--border-subtle)",
           }}>
             <span className="eyebrow">Encoding</span>
-            <LegendSwatch color="#38bdf8">colour = cluster</LegendSwatch>
-            <LegendSwatch color="#7c8aa5" shape="square">square = transaction</LegendSwatch>
-            <LegendSwatch color="#7c8aa5">circle = wallet</LegendSwatch>
-            <LegendSwatch color="#38bdf8" border="#ffb020">amber ring = geo-temporal mismatch</LegendSwatch>
-            <LegendSwatch color="#243149">unscored context</LegendSwatch>
+            <LegendSwatch color="#6366f1">colour = cluster</LegendSwatch>
+            <LegendSwatch color="#8a8f98" shape="square">square = transaction</LegendSwatch>
+            <LegendSwatch color="#8a8f98">circle = wallet</LegendSwatch>
+            <LegendSwatch color="#6366f1" border="#d99a4e">amber ring = geo-temporal mismatch</LegendSwatch>
+            <LegendSwatch color="#1c1e22">unscored context</LegendSwatch>
             <span style={{ marginLeft: "auto", fontSize: "var(--text-xs)", color: "var(--text-faint)" }} className="mono">
               {data.nodes.length} nodes · {data.edges.length} edges · {clusterIds.length} clusters
             </span>
@@ -83,9 +83,9 @@ export default function GraphPanel({ focusNodeId, onSelectNode }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginBottom: "var(--space-3)" }}>
               {clusterIds.map((cid) => (
                 <span key={cid} className="mono" style={{
-                  fontSize: "var(--text-2xs)", padding: "0.12rem 0.4rem", borderRadius: 4,
-                  color: clusterColor(cid), background: "var(--surface-2-solid)",
-                  border: `1px solid ${clusterColor(cid)}44`,
+                  fontSize: "var(--text-caption)", padding: "2px var(--spacing-8)", borderRadius: "var(--radius-badges)",
+                  color: clusterColor(cid), background: "rgba(255,255,255,0.02)",
+                  boxShadow: `${clusterColor(cid)}47 0px 0px 0px 1px inset`,
                 }}>
                   c{cid}
                 </span>

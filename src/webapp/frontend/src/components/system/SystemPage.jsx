@@ -12,10 +12,10 @@ function StatusRow({ label, ok, detail }) {
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
         <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{detail}</span>
         <span style={{
-          fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase",
+          fontSize: "var(--text-caption)", fontWeight: "var(--weight-medium)",
           padding: "0.15rem 0.5rem", borderRadius: "12px",
           color: ok ? "var(--success)" : "var(--text-muted)",
-          background: ok ? "rgba(0,230,118,0.12)" : "rgba(100,116,139,0.12)",
+          background: ok ? "var(--risk-low-tint)" : "rgba(98,102,109,0.05)",
           border: `1px solid ${ok ? "var(--success)" : "var(--text-muted)"}33`,
         }}>
           {ok ? "Active" : "Pending"}
@@ -63,7 +63,7 @@ export default function SystemPage() {
           <h3 style={{ fontSize: "0.85rem", marginBottom: "0.6rem" }}>Mode</h3>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: "0.4rem",
-            fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase",
+            fontSize: "var(--text-caption)", fontWeight: "var(--weight-medium)",
             padding: "0.3rem 0.7rem", borderRadius: "20px", marginBottom: "0.8rem",
             color: "var(--accent-cyan)", background: "rgba(0,229,255,0.1)",
             border: "1px solid var(--accent-cyan)33",

@@ -1,26 +1,31 @@
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens } from "../../lib/motionTokens";
+import { riskTier } from "../../lib/risk";
 
+/**
+ * Badge / Status Tag: ~5% tint of the semantic risk colour, 4px radius, hairline inset
+ * border, and the numeric score set in Berkeley Mono. Risk severity only — this never
+ * uses the Acid Lime action accent.
+ */
 export default function RiskPill({ score }) {
   const reduceMotion = useReducedMotion();
-  const s = typeof score === "number" ? score : 0;
-  let color = "var(--success)", bg = "rgba(0,230,118,0.12)";
-  if (s >= 0.8) { color = "var(--danger)"; bg = "rgba(255,23,68,0.12)"; }
-  else if (s >= 0.6) { color = "var(--warning)"; bg = "rgba(255,145,0,0.12)"; }
+  const tier = riskTier(score);
+  const hasScore = typeof score === "number" && !Number.isNaN(score);
 
   return (
     <motion.span
+      className="badge mono"
       initial={{ scale: 1 }}
-      whileHover={reduceMotion ? undefined : { scale: 1.05 }}
-      whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+      whileHover={reduceMotion ? undefined : { scale: motionTokens.hover.pillScale }}
+      whileTap={reduceMotion ? undefined : { scale: motionTokens.tap.pillScale }}
       transition={{ duration: motionTokens.duration.fast, ease: motionTokens.easing.sharp }}
       style={{
-        display: "inline-block", padding: "0.15rem 0.5rem", borderRadius: "6px",
-        fontFamily: "var(--font-mono)", fontSize: "0.8rem", fontWeight: 600,
-        color, background: bg, border: `1px solid ${color}33`,
+        color: tier.color,
+        background: tier.tint,
+        boxShadow: `${tier.line} 0px 0px 0px 1px inset`,
       }}
     >
-      {s.toFixed(3)}
+      {hasScore ? score.toFixed(3) : "—"}
     </motion.span>
   );
 }

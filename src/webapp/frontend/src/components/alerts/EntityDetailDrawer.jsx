@@ -7,10 +7,10 @@ import { motionTokens } from "../../lib/motionTokens";
 function Field({ label, value }) {
   return (
     <div style={{ marginBottom: "0.7rem" }}>
-      <div style={{ fontSize: "0.68rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+      <div style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)" }}>
         {label}
       </div>
-      <div style={{ fontSize: "0.9rem", color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>
+      <div style={{ fontSize: "var(--text-caption)", color: "var(--color-mist)", fontFamily: "var(--font-berkeley-mono)" }}>
         {value ?? "-"}
       </div>
     </div>
@@ -20,9 +20,9 @@ function Field({ label, value }) {
 function SectionTitle({ children }) {
   return (
     <h4 style={{
-      fontSize: "0.72rem", color: "var(--accent-cyan)", textTransform: "uppercase",
-      letterSpacing: "0.06em", marginTop: "1.4rem", marginBottom: "0.6rem",
-      borderBottom: "1px solid var(--border-color)", paddingBottom: "0.4rem",
+      fontSize: "var(--text-caption)", color: "var(--color-fog)", fontWeight: "var(--weight-medium)",
+      marginTop: "var(--spacing-24)", marginBottom: "var(--spacing-12)",
+      borderBottom: "1px solid var(--color-graphite)", paddingBottom: "var(--spacing-8)",
     }}>
       {children}
     </h4>
@@ -66,7 +66,7 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
           exit={{ opacity: 0 }}
           transition={{ duration: motionTokens.duration.fast, ease: motionTokens.easing.sharp }}
           style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            position: "fixed", inset: 0, background: "rgba(8,9,10,0.72)",
             display: "flex", justifyContent: "flex-end", zIndex: 50,
           }}
         >
@@ -82,13 +82,13 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
               ease: motionTokens.easing.smooth,
             }}
             style={{
-              width: "420px", height: "100%", background: "var(--bg-card)",
-              borderLeft: "1px solid var(--border-color)", padding: "1.5rem",
+              width: "440px", height: "100%", background: "var(--color-obsidian)",
+              borderLeft: "1px solid var(--color-graphite)", padding: "var(--spacing-24)",
               overflowY: "auto",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
-              <h3 style={{ fontSize: "1rem", wordBreak: "break-all", paddingRight: "1rem" }}>{nodeId}</h3>
+              <h3 style={{ fontSize: "var(--text-body-lg)", fontWeight: "var(--weight-medium)", wordBreak: "break-all", paddingRight: "1rem" }}>{nodeId}</h3>
               <motion.button
                 onClick={onClose}
                 initial={{ scale: 1 }}
@@ -104,7 +104,7 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
             {loading && <p style={{ color: "var(--text-muted)" }}>Loading entity…</p>}
 
             {error && (
-              <div style={{ color: "var(--warning)", fontSize: "0.85rem" }}>
+              <div style={{ color: "var(--warning)", fontSize: "var(--text-caption)" }}>
                 Could not load this entity: {error}
               </div>
             )}
@@ -151,7 +151,7 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
 
                 <motion.div variants={section}>
                   <SectionTitle>Why Flagged</SectionTitle>
-                  <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  <p style={{ fontSize: "var(--text-caption)", color: "var(--text-secondary)", lineHeight: 1.5 }}>
                     {data.alert.reason || "-"}
                   </p>
                 </motion.div>
@@ -160,18 +160,18 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
                   <SectionTitle>Intent Intelligence</SectionTitle>
                   {data.alert.intent_label ? (
                     <>
-                      <p style={{ fontSize: "0.9rem", color: "var(--text-primary)", marginBottom: "0.3rem" }}>
+                      <p style={{ fontSize: "var(--text-body-sm)", color: "var(--text-primary)", marginBottom: "0.3rem" }}>
                         {data.alert.intent_label}
                         {typeof data.alert.intent_confidence === "number" && (
                           <span style={{ color: "var(--text-muted)" }}> (confidence {data.alert.intent_confidence.toFixed(2)})</span>
                         )}
                       </p>
-                      <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                      <p style={{ fontSize: "var(--text-caption)", color: "var(--text-muted)", fontStyle: "italic" }}>
                         Rule-based structural pattern match — not a trained crime-type classifier.
                       </p>
                     </>
                   ) : (
-                    <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>-</p>
+                    <p style={{ fontSize: "var(--text-caption)", color: "var(--text-muted)" }}>-</p>
                   )}
                 </motion.div>
 
@@ -182,13 +182,13 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
                       // One-time attention pulse on a USP moment, then it settles. Finite
                       // keyframes (no repeat), and box-shadow/opacity only -- never a
                       // layout property.
-                      initial={{ opacity: 0, boxShadow: "0 0 0 0 rgba(255,145,0,0)" }}
+                      initial={{ opacity: 0, boxShadow: "0 0 0 0 rgba(217,154,78,0)" }}
                       animate={{
                         opacity: 1,
                         boxShadow: [
-                          "0 0 0 0 rgba(255,145,0,0)",
-                          "0 0 0 6px rgba(255,145,0,0.28)",
-                          "0 0 0 0 rgba(255,145,0,0)",
+                          "0 0 0 0 rgba(217,154,78,0)",
+                          "0 0 0 6px rgba(217,154,78,0.32)",
+                          "0 0 0 0 rgba(217,154,78,0)",
                         ],
                       }}
                       transition={{
@@ -198,28 +198,28 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
                           : { duration: motionTokens.duration.slow, ease: motionTokens.easing.smooth, delay: motionTokens.duration.fast },
                       }}
                       style={{
-                        background: "rgba(255,145,0,0.08)", border: "1px solid var(--warning)",
-                        borderRadius: "6px", padding: "0.7rem",
+                        background: "var(--signal-tint)", boxShadow: "var(--signal-line) 0px 0px 0px 1px inset",
+                        borderRadius: "var(--radius-badges)", padding: "var(--spacing-12)",
                       }}
                     >
-                      <div style={{ color: "var(--warning)", fontWeight: 600, fontSize: "0.82rem", marginBottom: "0.3rem" }}>
+                      <div style={{ color: "var(--signal)", fontWeight: "var(--weight-semi)", fontSize: "var(--text-caption)", marginBottom: "var(--spacing-8)" }}>
                         GEO-TEMPORAL MISMATCH
                       </div>
-                      <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                      <p style={{ fontSize: "var(--text-caption)", color: "var(--text-secondary)" }}>
                         {data.alert.geo_temporal_reason || "-"}
                       </p>
                     </motion.div>
                   ) : (
-                    <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>-</p>
+                    <p style={{ fontSize: "var(--text-caption)", color: "var(--text-muted)" }}>-</p>
                   )}
                 </motion.div>
 
                 <motion.div variants={section}>
                   <SectionTitle>Linked Blockchain Transactions</SectionTitle>
                   {data.linked_transactions.length === 0 ? (
-                    <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>No linked transactions found.</p>
+                    <p style={{ fontSize: "var(--text-caption)", color: "var(--text-muted)" }}>No linked transactions found.</p>
                   ) : (
-                    <div style={{ fontSize: "0.78rem" }}>
+                    <div style={{ fontSize: "var(--text-caption)" }}>
                       {data.linked_transactions.map((tx, i) => (
                         <div key={tx.txid ?? i} style={{
                           padding: "0.5rem 0", borderBottom: "1px solid var(--border-color)",
@@ -234,22 +234,22 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
 
                 <motion.div variants={section}>
                   <SectionTitle>💥 Kick Down Doors — Local Disruption Analysis</SectionTitle>
-                  {kddLoading && <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Analyzing local neighborhood…</p>}
+                  {kddLoading && <p style={{ color: "var(--text-muted)", fontSize: "var(--text-caption)" }}>Analyzing local neighborhood…</p>}
 
                   {kddError && (
-                    <div style={{ color: "var(--warning)", fontSize: "0.85rem" }}>
+                    <div style={{ color: "var(--warning)", fontSize: "var(--text-caption)" }}>
                       Kick Down Doors analysis unavailable: {kddError}
                     </div>
                   )}
 
                   {kddData && (
                     kddData.results.length === 0 ? (
-                      <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                      <p style={{ fontSize: "var(--text-caption)", color: "var(--text-muted)" }}>
                         No structural articulation points found in this entity's immediate neighborhood.
                       </p>
                     ) : (
                       <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", fontSize: "0.75rem", borderCollapse: "collapse" }}>
+                        <table style={{ width: "100%", fontSize: "var(--text-caption)", borderCollapse: "collapse" }}>
                           <thead>
                             <tr style={{ color: "var(--text-muted)", textAlign: "left" }}>
                               <th style={{ padding: "0.3rem 0.4rem 0.3rem 0", fontWeight: 500 }}>Node</th>
@@ -278,7 +278,7 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
                                 <td style={{ padding: "0.4rem", color: "var(--text-secondary)" }}>{n.impact_score.toFixed(3)}</td>
                                 <td style={{ padding: "0.4rem" }}>
                                   {n.is_articulation_point ? (
-                                    <span style={{ color: "var(--warning)", fontWeight: 600 }}>Yes</span>
+                                    <span style={{ color: "var(--signal)", fontWeight: "var(--weight-semi)" }}>Yes</span>
                                   ) : (
                                     <span style={{ color: "var(--text-muted)" }}>No</span>
                                   )}
@@ -287,7 +287,7 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
                             ))}
                           </tbody>
                         </table>
-                        <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.5rem", lineHeight: 1.4 }}>
+                        <p style={{ fontSize: "var(--text-caption)", color: "var(--text-muted)", marginTop: "0.5rem", lineHeight: 1.4 }}>
                           {kddData.results[0]?.reason}
                         </p>
                       </div>

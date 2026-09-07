@@ -9,6 +9,9 @@ import { useState } from "react";
  *
  * Unlike the alert tables, it resolves any node_id in the scored dataset, not just the
  * top-N ranked alerts.
+ *
+ * Text Input spec for the field; Primary Action Button (acid lime) for submit — this is
+ * an action, which is the one thing acid lime is reserved for.
  */
 export default function EntitySearch({ onSubmit }) {
   const [value, setValue] = useState("");
@@ -20,14 +23,14 @@ export default function EntitySearch({ onSubmit }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+    <form onSubmit={submit} style={{ display: "flex", gap: "var(--spacing-8)", alignItems: "center" }}>
       <input
         className="input mono"
         placeholder="Look up any wallet_… / tx_… id"
         aria-label="Look up an entity by node id"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        style={{ width: "290px", fontSize: "var(--text-xs)" }}
+        style={{ width: "300px", fontSize: "var(--text-caption)" }}
       />
       <button type="submit" className="btn btn-accent" disabled={!value.trim()}>
         Look up

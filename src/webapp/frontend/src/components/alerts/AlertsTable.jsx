@@ -9,10 +9,10 @@ import { clusterColor } from "../../lib/clusterColors";
 const MAX_STAGGERED_ROWS = 10;
 const PER_ROW_DELAY = 0.03;
 
-// Same hue as --surface-3, written as rgba so the hover transition interpolates alpha
+// Same hue as --color-graphite (#23252a), written as rgba so the hover transition interpolates alpha
 // directly instead of passing through a grey "transparent".
-const ROW_BG_IDLE = "rgba(30, 42, 65, 0)";
-const ROW_BG_HOVER = "rgba(30, 42, 65, 1)";
+const ROW_BG_IDLE = "rgba(35, 37, 42, 0)";
+const ROW_BG_HOVER = "rgba(35, 37, 42, 1)";
 
 const PAGE_SIZE = 12;
 
@@ -69,18 +69,18 @@ export default function AlertsTable({ title, subtitle, accent, rows, onSelectRow
     <section className="panel" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <header style={{
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        gap: "var(--space-3)", padding: "var(--space-4)",
-        borderBottom: "1px solid var(--border-subtle)", flexWrap: "wrap",
+        gap: "var(--spacing-12)", padding: "var(--spacing-16)",
+        borderBottom: "1px solid var(--color-graphite)", flexWrap: "wrap",
       }}>
-        <div style={{ borderLeft: `3px solid ${accent}`, paddingLeft: "var(--space-3)" }}>
-          <h3 style={{ color: "var(--text-primary)" }}>
+        <div style={{ borderLeft: `2px solid ${accent}`, paddingLeft: "var(--spacing-12)" }}>
+          <h3 style={{ color: "var(--color-bone)" }}>
             {title}{" "}
-            <span className="mono" style={{ color: "var(--text-faint)", fontWeight: 400, fontSize: "var(--text-sm)" }}>
+            <span className="mono" style={{ color: "var(--color-ash)", fontWeight: "var(--weight-regular)", fontSize: "var(--text-caption)" }}>
               ({safeRows.length})
             </span>
           </h3>
           {subtitle && (
-            <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2 }}>{subtitle}</div>
+            <div style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)", marginTop: 2 }}>{subtitle}</div>
           )}
         </div>
         <input
@@ -88,7 +88,7 @@ export default function AlertsTable({ title, subtitle, accent, rows, onSelectRow
           placeholder="Filter node ID…"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-          style={{ width: "190px" }}
+          style={{ width: "190px", fontSize: "var(--text-caption)" }}
         />
       </header>
 
@@ -109,7 +109,7 @@ export default function AlertsTable({ title, subtitle, accent, rows, onSelectRow
           </thead>
           <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={columns.length} style={{ padding: "var(--space-5)", color: "var(--text-muted)" }}>No matching entities.</td></tr>
+              <tr><td colSpan={columns.length} style={{ padding: "var(--spacing-24)", color: "var(--color-ash)" }}>No matching entities.</td></tr>
             ) : pageRows.map((row, i) => (
               <motion.tr
                 key={row.node_id ?? i}
@@ -127,13 +127,13 @@ export default function AlertsTable({ title, subtitle, accent, rows, onSelectRow
                 style={{ cursor: "pointer" }}
                 onClick={() => onSelectRow?.(row.node_id)}
               >
-                <td className="mono" style={{ color: "var(--text-primary)" }} title={row.node_id}>
+                <td className="mono" style={{ color: "var(--color-mist)" }} title={row.node_id}>
                   {String(row.node_id ?? "-").length > 26 ? String(row.node_id).slice(0, 26) + "…" : (row.node_id ?? "-")}
                 </td>
                 <td>{row.label ?? "-"}</td>
                 <td className="mono">
                   {row.cluster_id !== null && row.cluster_id !== undefined ? (
-                    <span style={{ color: clusterColor(row.cluster_id) }}>c{row.cluster_id}</span>
+                    <span className="badge mono" style={{ color: clusterColor(row.cluster_id), background: "rgba(255,255,255,0.02)", boxShadow: `${clusterColor(row.cluster_id)}47 0px 0px 0px 1px inset` }}>c{row.cluster_id}</span>
                   ) : "-"}
                 </td>
                 <td><RiskPill score={row.risk_score} /></td>
@@ -143,7 +143,7 @@ export default function AlertsTable({ title, subtitle, accent, rows, onSelectRow
                 <td className="mono">
                   {typeof row.anomaly_score === "number" ? row.anomaly_score.toFixed(3) : "-"}
                 </td>
-                <td style={{ maxWidth: "260px", fontSize: "var(--text-xs)" }} title={row.reason}>
+                <td style={{ maxWidth: "260px", fontSize: "var(--text-caption)", color: "var(--color-fog)" }} title={row.reason}>
                   {row.reason ?? "-"}
                 </td>
               </motion.tr>
@@ -154,17 +154,17 @@ export default function AlertsTable({ title, subtitle, accent, rows, onSelectRow
 
       <footer style={{
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-subtle)",
-        gap: "var(--space-3)",
+        padding: "var(--spacing-12) var(--spacing-16)", borderTop: "1px solid var(--color-graphite)",
+        gap: "var(--spacing-12)",
       }}>
-        <span className="mono" style={{ fontSize: "var(--text-2xs)", color: "var(--text-faint)" }}>
+        <span className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)" }}>
           {filtered.length === 0
             ? "0 of 0"
             : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
         </span>
-        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "var(--spacing-8)", alignItems: "center" }}>
           <button className="btn" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>‹ Prev</button>
-          <span className="mono" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", minWidth: "4.5rem", textAlign: "center" }}>
+          <span className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--color-fog)", minWidth: "4.5rem", textAlign: "center" }}>
             Page {page + 1} / {pageCount}
           </span>
           <button className="btn" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>Next ›</button>

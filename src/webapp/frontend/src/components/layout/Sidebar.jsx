@@ -7,6 +7,7 @@ const SECTIONS = [
   { id: "alerts", label: "Alerts", group: "Monitor" },
   { id: "graph", label: "Forensic Graph", group: "Investigate" },
   { id: "kickdown", label: "Kick Down Doors", group: "Investigate" },
+  { id: "provenance", label: "Adversarial Provenance", group: "Investigate" },
   { id: "geo", label: "Geo Intelligence", group: "Intelligence" },
   { id: "pattern", label: "Pattern Intelligence", group: "Intelligence" },
   { id: "system", label: "System / About", group: "Intelligence" },

@@ -39,3 +39,11 @@ export function lookupEntity(nodeId) {
 export function getEntityHours(nodeId) {
   return fetchJson(`/api/entity-hours/${encodeURIComponent(nodeId)}`);
 }
+
+export function getAplSummary() {
+  return fetchJson("/api/apl/summary");
+}
+
+export function getAplAgency(nodeId) {
+  return fetchJson(`/api/apl/agency/${encodeURIComponent(nodeId)}`);
+}

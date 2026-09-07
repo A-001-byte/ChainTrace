@@ -48,6 +48,9 @@ from src.graph_ml.clustering import kick_down_doors
 # rather than a second hardcoded copy that could drift.
 from src.graph_ml.geo_temporal import BUSINESS_HOUR_END, BUSINESS_HOUR_START
 from src.webapp.graph_assets import make_graph_html_offline_safe
+# Adversarial Provenance Layer: paths only. The endpoints below read its output artifacts;
+# they never recompute agency at request time and never embed one of its numbers.
+from src.adversarial_provenance import config as apl_config
 
 # The detector writes its verdict as "claims US, but 57% of activity falls in ..." --
 # the claimed country is parsed back out of that sentence because that string is the
@@ -74,6 +77,25 @@ MAX_ALERTS_TO_GEO_ENRICH = 50
 # webapp's request-per-endpoint model makes the uncached cost far more noticeable than
 # Streamlit's single-script-rerun model does.
 _dataset_cache: dict = {}
+
+# Separate cache for the Adversarial Provenance Layer's agency table (822k rows). Keyed on
+# (path, mtime) like the dataset cache, so rerunning the APL pipeline is picked up without
+# restarting the server.
+_apl_cache: dict = {}
+
+
+def _apl_agency() -> pd.DataFrame | None:
+    """agency.parquet indexed by bare address, or None if the layer hasn't been built."""
+    path = apl_config.AGENCY_PARQUET
+    if not path.exists():
+        return None
+    key = (str(path), path.stat().st_mtime)
+    if _apl_cache.get("key") != key:
+        df = pd.read_parquet(path).set_index("address")
+        _apl_cache.clear()
+        _apl_cache["key"] = key
+        _apl_cache["agency"] = df
+    return _apl_cache["agency"]
 
 
 def _current_cache_key() -> tuple:
@@ -510,6 +532,75 @@ def create_app() -> Flask:
         """
         tx_df, alerts_df, _, _ = _active_datasets()
         return jsonify(_build_graph_payload(alerts_df, tx_df))
+
+    @app.get("/api/apl/summary")
+    def api_apl_summary():
+        """Adversarial Provenance Layer: the manifest (honesty contract) and the measured
+        headline statistics, served straight off disk.
+
+        Additive; touches no existing route. Everything returned here was computed by
+        `python -m src.adversarial_provenance.pipeline` and
+        `python -m src.adversarial_provenance.headline_stats` over real Elliptic++ rows --
+        this endpoint reads JSON, it does not calculate or embed any figure.
+        """
+        manifest_path = apl_config.MANIFEST_JSON
+        stats_path = apl_config.HEADLINE_STATS_JSON
+        if not manifest_path.exists() or not stats_path.exists():
+            return jsonify({
+                "available": False,
+                "error": (
+                    "Adversarial Provenance Layer has not been built. Run "
+                    "python -m src.adversarial_provenance.pipeline then "
+                    "python -m src.adversarial_provenance.headline_stats"
+                ),
+            }), 404
+        return jsonify({
+            "available": True,
+            "manifest": json.loads(manifest_path.read_text(encoding="utf-8")),
+            "headline_stats": json.loads(stats_path.read_text(encoding="utf-8")),
+        })
+
+    @app.get("/api/apl/agency/<path:node_id>")
+    def api_apl_agency(node_id: str):
+        """Per-wallet agency record: alpha plus every component that produced it.
+
+        node_id may be a graph node id ("wallet_<address>") or a bare address.
+        """
+        agency = _apl_agency()
+        if agency is None:
+            return jsonify({"available": False, "error": "Adversarial Provenance Layer not built."}), 404
+
+        address = str(node_id)
+        if address.startswith("wallet_"):
+            address = address[len("wallet_"):]
+
+        if address not in agency.index:
+            return jsonify({
+                "available": True,
+                "found": False,
+                "node_id": node_id,
+                "error": f"'{address}' is not present in the Elliptic++ address-transaction edge lists.",
+            }), 404
+
+        row = agency.loc[address]
+        if isinstance(row, pd.DataFrame):  # defensive: duplicate index would break .loc
+            row = row.iloc[0]
+
+        return jsonify({
+            "available": True,
+            "found": True,
+            "node_id": node_id,
+            "address": address,
+            "alpha": float(row.alpha),
+            "has_spent": bool(row.has_spent),
+            "has_received": bool(row.has_received),
+            "spend_after_exposure": bool(row.spend_after_exposure),
+            "commingled": bool(row.commingled),
+            "n_taint_links": int(row.n_taint_links),
+            "repeat_counterparty": bool(row.repeat_counterparty),
+            "first_contact": bool(row.first_contact),
+            "evidence_reason": str(row.evidence_reason),
+        })
 
     @app.get("/api/entity-hours/<path:node_id>")
     def api_entity_hours(node_id: str):

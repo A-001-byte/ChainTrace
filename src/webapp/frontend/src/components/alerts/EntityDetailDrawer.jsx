@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEntity } from "../../hooks/useEntity";
 import { useKickDownDoors } from "../../hooks/useKickDownDoors";
+import { useAplAgency } from "../../hooks/useAplAgency";
 import RiskPill from "../shared/RiskPill";
 import { motionTokens } from "../../lib/motionTokens";
 
@@ -33,6 +34,7 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
   const reduceMotion = useReducedMotion();
   const { data, error, loading } = useEntity(nodeId);
   const { data: kddData, error: kddError, loading: kddLoading } = useKickDownDoors(nodeId);
+  const { data: aplData } = useAplAgency(nodeId);
 
   // Staggered reveal for the "USP tour" a judge scrolls through: Entity -> Why Flagged ->
   // Intent -> Geo-Temporal -> Linked Transactions -> Kick Down Doors.
@@ -229,6 +231,65 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
                         </div>
                       ))}
                     </div>
+                  )}
+                </motion.div>
+
+                <motion.div variants={section}>
+                  <SectionTitle>Custody Agency</SectionTitle>
+                  {!aplData?.found ? (
+                    <p style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)" }}>
+                      Not present in the Elliptic++ address-transaction edge lists.
+                    </p>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--spacing-12)", marginBottom: "var(--spacing-8)" }}>
+                        <span className="mono" style={{
+                          fontSize: "var(--text-subheading)", lineHeight: "var(--leading-subheading)",
+                          letterSpacing: "var(--tracking-subheading)", fontWeight: "var(--weight-medium)",
+                          color: aplData.alpha === 0 ? "var(--color-pulse-green)" : "var(--color-bone)",
+                        }}>
+                          &alpha; = {aplData.alpha.toFixed(2)}
+                        </span>
+                        {aplData.alpha === 0 && (
+                          <span className="badge mono" style={{
+                            color: "var(--color-pulse-green)", background: "var(--risk-low-tint)",
+                            boxShadow: "var(--risk-low-line) 0px 0px 0px 1px inset",
+                          }}>
+                            ZERO CUSTODY AGENCY
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: "var(--text-caption)", color: "var(--color-fog)", lineHeight: 1.6 }}>
+                        {aplData.evidence_reason}
+                      </p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--spacing-8)", marginTop: "var(--spacing-12)" }}>
+                        {[
+                          ["spent", aplData.has_spent],
+                          ["spent after exposure", aplData.spend_after_exposure],
+                          ["commingled", aplData.commingled],
+                          ["repeat counterparty", aplData.repeat_counterparty],
+                        ].map(([label, on]) => (
+                          <span key={label} className="badge" style={{
+                            color: on ? "var(--color-mist)" : "var(--color-ash)",
+                            background: "rgba(255,255,255,0.02)",
+                            boxShadow: "var(--color-graphite) 0px 0px 0px 1px inset",
+                          }}>
+                            {on ? "yes" : "no"} &middot; {label}
+                          </span>
+                        ))}
+                        <span className="badge mono" style={{
+                          color: "var(--color-ash)", background: "rgba(255,255,255,0.02)",
+                          boxShadow: "var(--color-graphite) 0px 0px 0px 1px inset",
+                        }}>
+                          {aplData.n_taint_links} tainted links
+                        </span>
+                      </div>
+                      <p style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)", lineHeight: 1.5, marginTop: "var(--spacing-12)" }}>
+                        Agency describes this address's recorded spend authority in the Elliptic++
+                        address-transaction structure, not a live UTXO ledger and not a finding about
+                        a real-world person. It routes the alert; it does not clear it.
+                      </p>
+                    </>
                   )}
                 </motion.div>
 

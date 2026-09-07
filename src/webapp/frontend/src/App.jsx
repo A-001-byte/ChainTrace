@@ -8,6 +8,7 @@ import GraphPanel from "./components/graph/GraphPanel";
 import GeoPage from "./components/geo/GeoPage";
 import PatternPage from "./components/pattern/PatternPage";
 import KickDownDoorsPage from "./components/kickdown/KickDownDoorsPage";
+import ProvenancePage from "./components/provenance/ProvenancePage";
 import SystemPage from "./components/system/SystemPage";
 
 export default function App() {
@@ -44,6 +45,8 @@ export default function App() {
         {active === "kickdown" && (
           <KickDownDoorsPage selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
         )}
+
+        {active === "provenance" && <ProvenancePage />}
 
         {active === "geo" && <GeoPage />}
 

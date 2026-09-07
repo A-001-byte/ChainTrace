@@ -390,8 +390,8 @@ function renderDrilldown(data) {
       <div class="drilldown-col">
         <h4>📊 Risk Breakdown</h4>
         <p><strong>Node Type:</strong> <code>${escapeHtml(a.node_type)}</code></p>
-        <p><strong>Random Forest Confidence:</strong> <code>${(a.classifier_confidence ?? 0).toFixed(4)}</code></p>
-        <p><strong>Isolation Forest Anomaly:</strong> <code>${(a.anomaly_score ?? 0).toFixed(4)}</code></p>
+        <p><strong>Random Forest Confidence:</strong> <code>${typeof a.classifier_confidence === "number" ? a.classifier_confidence.toFixed(4) : "—"}</code></p>
+        <p><strong>Isolation Forest Anomaly:</strong> <code>${typeof a.anomaly_score === "number" ? a.anomaly_score.toFixed(4) : "—"}</code></p>
         <p><strong>Louvain Community:</strong> <code>${escapeHtml(a.cluster_id ?? "N/A")}</code></p>
       </div>
       <div class="drilldown-col">

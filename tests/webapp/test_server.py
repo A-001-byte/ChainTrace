@@ -301,3 +301,35 @@ def test_entity_endpoint_contract_is_unchanged_by_the_new_lookup(client):
     # /api/entity-lookup, so nothing that depended on this 404 behaviour changed.
     assert client.get("/api/entity/tx_124").status_code == 404
     assert client.get("/api/entity/wallet_AAA").status_code == 200
+
+
+# --- /api/entity-hours: powers the "claimed vs actual" geo-temporal explainer ---------
+
+
+def test_entity_hours_returns_utc_histogram_for_a_known_entity(client):
+    resp = client.get("/api/entity-hours/wallet_AAA")
+    assert resp.status_code == 200
+    body = resp.get_json()
+
+    assert body["node_id"] == "wallet_AAA"
+    assert len(body["utc_hours"]) == 24
+    # wallet_AAA has exactly one linked transaction at 2015-01-01 00:00:00 (conftest).
+    assert body["utc_hours"][0] == 1
+    assert sum(body["utc_hours"]) == body["transaction_count"] == 1
+    # The window must come from the detector's own constants, not a second copy.
+    assert body["business_hour_start"] == 9
+    assert body["business_hour_end"] == 18
+
+
+def test_entity_hours_404s_for_an_entity_with_no_transactions(client):
+    assert client.get("/api/entity-hours/wallet_no_such_wallet_at_all").status_code == 404
+
+
+def test_entity_hours_leaves_claim_fields_null_when_there_is_no_verdict(client):
+    # The synthetic fixtures carry no geo_temporal_reason, so there is no claimed country
+    # to localise against -- those fields must come back null rather than guessed.
+    body = client.get("/api/entity-hours/wallet_AAA").get_json()
+    assert body["claimed_country"] is None
+    assert body["claimed_utc_offset"] is None
+    assert body["local_hours"] is None
+    assert body["claimed_business_fraction"] is None

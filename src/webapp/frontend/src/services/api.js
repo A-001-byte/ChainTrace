@@ -35,3 +35,7 @@ export function getGraphData() {
 export function lookupEntity(nodeId) {
   return fetchJson(`/api/entity-lookup/${encodeURIComponent(nodeId)}`);
 }
+
+export function getEntityHours(nodeId) {
+  return fetchJson(`/api/entity-hours/${encodeURIComponent(nodeId)}`);
+}

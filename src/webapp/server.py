@@ -29,6 +29,7 @@ or via the Flask CLI:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import networkx as nx
@@ -40,8 +41,19 @@ from src.dashboard.components.graph_container import build_graph_html
 from src.dashboard.components.sidebar import DEFAULT_ALERTS_PATH, DEFAULT_TX_PATH
 from src.dashboard.config import HIGH_RISK_THRESHOLD, MEDIUM_RISK_THRESHOLD
 from src.dashboard.data_loader import get_active_datasets
+from src.data_pipeline.config import COUNTRY_UTC_OFFSET
 from src.graph_ml.clustering import kick_down_doors
+# Read-only imports of the detector's own constants so the "claimed vs actual" panel
+# uses the exact same business-hours window the detector judged the wallet against,
+# rather than a second hardcoded copy that could drift.
+from src.graph_ml.geo_temporal import BUSINESS_HOUR_END, BUSINESS_HOUR_START
 from src.webapp.graph_assets import make_graph_html_offline_safe
+
+# The detector writes its verdict as "claims US, but 57% of activity falls in ..." --
+# the claimed country is parsed back out of that sentence because that string is the
+# authoritative record of what the detector actually judged. The alert row's own
+# geo_country column is derived differently and genuinely disagrees for some wallets.
+_CLAIMS_RE = re.compile(r"^claims\s+([A-Z]{2})")
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 GRAPH_HTML_PATH = "outputs/graphs/cluster_graph.html"  # same default as render_graph_section()
@@ -498,6 +510,70 @@ def create_app() -> Flask:
         """
         tx_df, alerts_df, _, _ = _active_datasets()
         return jsonify(_build_graph_payload(alerts_df, tx_df))
+
+    @app.get("/api/entity-hours/<path:node_id>")
+    def api_entity_hours(node_id: str):
+        """Activity-hour histogram for one entity, in UTC and in the CLAIMED country's
+        local time, alongside that country's expected business-hours window.
+
+        Additive. This exists because the per-wallet hour distribution is genuinely not
+        exposed anywhere else: /api/alerts carries the detector's verdict sentence but not
+        the histogram behind it, and /api/geo is aggregate-only. It powers the
+        "claimed vs actual" explainer — showing the reader the mismatch the detector
+        describes in words, rather than restating the sentence a second time.
+
+        Read-only over unified_dataset.csv; computes nothing the detector didn't already
+        act on, and re-runs no part of the pipeline.
+        """
+        tx_df, alerts_df, _, _ = _active_datasets()
+
+        linked = find_linked_transactions(tx_df, str(node_id))
+        if linked.empty or "timestamp" not in linked.columns:
+            return jsonify({"error": f"No transactions found for entity '{node_id}'."}), 404
+
+        timestamps = pd.to_datetime(linked["timestamp"], errors="coerce").dropna()
+        if timestamps.empty:
+            return jsonify({"error": f"No usable timestamps for entity '{node_id}'."}), 404
+
+        utc_hours = [0] * 24
+        for h in timestamps.dt.hour:
+            utc_hours[int(h)] += 1
+
+        # Claimed country comes from the detector's own sentence (see _CLAIMS_RE).
+        match = alerts_df[alerts_df["node_id"].astype(str) == str(node_id)]
+        claimed_country, reason = None, None
+        if not match.empty:
+            raw_reason = match.iloc[0].get("geo_temporal_reason")
+            if pd.notna(raw_reason):
+                reason = str(raw_reason)
+                m = _CLAIMS_RE.match(reason)
+                if m:
+                    claimed_country = m.group(1)
+
+        claimed_offset = COUNTRY_UTC_OFFSET.get(claimed_country) if claimed_country else None
+
+        local_hours = None
+        business_fraction = None
+        if claimed_offset is not None:
+            local_hours = [0] * 24
+            for utc_hour, count in enumerate(utc_hours):
+                local_hours[(utc_hour + claimed_offset) % 24] += count
+            total = sum(local_hours) or 1
+            in_window = sum(local_hours[BUSINESS_HOUR_START:BUSINESS_HOUR_END])
+            business_fraction = round(in_window / total, 4)
+
+        return jsonify({
+            "node_id": node_id,
+            "claimed_country": claimed_country,
+            "claimed_utc_offset": claimed_offset,
+            "geo_temporal_reason": reason,
+            "utc_hours": utc_hours,
+            "local_hours": local_hours,
+            "business_hour_start": BUSINESS_HOUR_START,
+            "business_hour_end": BUSINESS_HOUR_END,
+            "claimed_business_fraction": business_fraction,
+            "transaction_count": int(len(timestamps)),
+        })
 
     @app.get("/api/entity-lookup/<path:node_id>")
     def api_entity_lookup(node_id: str):

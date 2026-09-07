@@ -55,12 +55,15 @@ def test_attach_network_layer_and_geo_temporal_evasion(tmp_path):
         assert col in out_df.columns
         assert out_df[col].isnull().sum() == 0
 
-    # 2. Verify ground truth contains the full VPN Catcher schema (now with original_label).
+    # 2. Verify ground truth contains the full VPN Catcher schema (now with original_label
+    # and honest -- the latter distinguishes planted evaders from verified-honest negative
+    # controls; both live in the same file, "planted" is the column that separates them).
     assert ground_truth_csv.exists()
     gt_df = pd.read_csv(ground_truth_csv)
     assert list(gt_df.columns) == [
         "wallet_id",
         "planted",
+        "honest",
         "claimed_country",
         "peak_utc_hour",
         "original_label",
@@ -74,14 +77,20 @@ def test_attach_network_layer_and_geo_temporal_evasion(tmp_path):
         for address in row["input_addresses"]
     }
     expected_planted = max(1, int(len(all_wallets) * 0.20))
-    planted_wallets = set(gt_df["wallet_id"])
+    planted_rows = gt_df[gt_df["planted"] == True]
+    honest_rows = gt_df[gt_df["planted"] == False]
+    planted_wallets = set(planted_rows["wallet_id"])
     assert len(planted_wallets) == expected_planted
     assert planted_wallets <= all_wallets
-    assert gt_df["planted"].eq(True).all()
-    
+    assert planted_rows["honest"].eq(False).all()
+
+    # Negative controls: disjoint from planted wallets, explicitly marked honest=True.
+    assert honest_rows["honest"].eq(True).all()
+    assert planted_wallets.isdisjoint(set(honest_rows["wallet_id"]))
+
     # Verify planted wallets include both licit and illicit labels
     # (proportional to their distribution in the dataset)
-    labels_in_ground_truth = set(gt_df["original_label"])
+    labels_in_ground_truth = set(planted_rows["original_label"])
     assert "licit" in labels_in_ground_truth or "illicit" in labels_in_ground_truth
 
     # 3. Verify PERSISTENCE of claimed geo_country for each planted wallet

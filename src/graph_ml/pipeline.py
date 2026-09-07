@@ -80,13 +80,20 @@ def _print_run_summary(
     )
 
 
-def run(sample_timesteps: int | None = None, top_n: int = TOP_N_ALERTS) -> tuple[nx.Graph, pd.DataFrame]:
+def run(
+    sample_timesteps: int | None = None,
+    top_n: int = TOP_N_ALERTS,
+    unknown_only: bool = False,
+    combined: bool = False,
+) -> tuple[nx.Graph, pd.DataFrame]:
     """Run the full Phase 2 pipeline.
 
     Args:
         sample_timesteps: pass e.g. 3 to subsample the Elliptic graph to the first N time
             steps (Section 8 risk mitigation — keeps the demo fast and laptop-friendly).
         top_n: how many top-ranked alerts to return.
+        unknown_only: if True, return only unknown nodes (new discoveries).
+        combined: if True, include both top_n known and top_n unknown alerts.
 
     Returns:
         (graph, ranked_alerts_df)
@@ -121,7 +128,14 @@ def run(sample_timesteps: int | None = None, top_n: int = TOP_N_ALERTS) -> tuple
         feature_frames[node_type] = features
         detection_results.append(score_node_type(graph, node_type, feature_prefix=prefix))
 
-    alerts = build_ranked_alerts(graph, detection_results, feature_frames, top_n=top_n)
+    alerts = build_ranked_alerts(
+        graph,
+        detection_results,
+        feature_frames,
+        top_n=top_n,
+        unknown_only=unknown_only,
+        combined=combined,
+    )
 
     _print_run_summary(
         run_mode=run_mode,

@@ -68,6 +68,9 @@ TIME_STEP_DAYS = 14
 # Task schema requires numeric labels: 0=licit, 1=illicit, -1=unknown (graph_ml's internal
 # string labels are illicit/licit/unknown — converted only at final export).
 LABEL_TO_NUMERIC = {"illicit": 1, "licit": 0, "unknown": -1}
+# Reverse mapping — needed by attach_network_layer() to recover the string label (for
+# risky/residential ASN weighting) from a Contract A DataFrame's already-numeric label column.
+NUMERIC_TO_LABEL = {v: k for k, v in LABEL_TO_NUMERIC.items()}
 
 # Standard UTC hour offsets for major ISO country codes in GeoLite2 CSV dataset
 COUNTRY_UTC_OFFSET = {

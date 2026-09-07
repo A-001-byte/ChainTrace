@@ -14,6 +14,21 @@ from src.graph_ml.data_loader import load_elliptic_pp_wallets, load_elliptic_tra
 
 from . import config, geo_lookup, network_synth
 
+# Contract A: the 9 blockchain-layer columns this module owns. Exact names and order —
+# Ujjwal's network layer (src_ip, dst_ip, src_port, dst_port, geo_country, asn) attaches
+# on top of this in attach_network_layer(), never inside build_blockchain_dataset().
+BLOCKCHAIN_COLUMNS = [
+    "txid",
+    "timestamp",
+    "input_addresses",
+    "output_addresses",
+    "input_amounts",
+    "output_amounts",
+    "fee",
+    "script_type",
+    "label",
+]
+
 
 def _addresses_and_amounts_per_tx(nodes: pd.DataFrame, wallets: pd.DataFrame, addr_tx_edges: pd.DataFrame,
                                    tx_addr_edges: pd.DataFrame):
@@ -61,8 +76,16 @@ def _addresses_and_amounts_per_tx(nodes: pd.DataFrame, wallets: pd.DataFrame, ad
     return result
 
 
-def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
-    rng = np.random.default_rng(config.RANDOM_STATE)
+def build_blockchain_dataset(
+    sample_timesteps: int | None = None, rng: np.random.Generator | None = None
+) -> pd.DataFrame:
+    """Contract A: build strictly the 9 blockchain-layer columns this module owns.
+
+    No network/geo columns here — that's attach_network_layer()'s job, so Ujjwal's
+    Sprint 2 network work has a clean, stable boundary to plug into.
+    """
+    if rng is None:
+        rng = np.random.default_rng(config.RANDOM_STATE)
 
     print("Loading real Elliptic transactions...")
     nodes, edges = load_elliptic_transactions(sample_timesteps=sample_timesteps)
@@ -96,11 +119,26 @@ def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
             "label": nodes["class"].map(config.LABEL_TO_NUMERIC).tolist(),
         }
     )
+    return df[BLOCKCHAIN_COLUMNS]
 
+
+
+def attach_network_layer(blockchain_df: pd.DataFrame, rng: np.random.Generator | None = None) -> pd.DataFrame:
+    """Ujjwal's Sprint 2 boundary: attach src_ip/dst_ip/src_port/dst_port/geo_country/asn
+    and VPN Catcher ground truth to a Contract A blockchain DataFrame.
+    """
     print("\nAttaching network layer (IPs, ports, GeoLite2 country/ASN, VPN Catcher ground truth)...")
-    df = network_synth.attach_network_layer(df, rng=rng)
+    return network_synth.attach_network_layer(blockchain_df, rng=rng)
 
-    return df
+
+
+def build_unified_dataset(sample_timesteps: int | None = None) -> pd.DataFrame:
+    """Full demo pipeline: Contract A blockchain columns + Ujjwal's network layer,
+    sharing one seeded rng so the whole run stays deterministic end to end.
+    """
+    rng = np.random.default_rng(config.RANDOM_STATE)
+    blockchain_df = build_blockchain_dataset(sample_timesteps=sample_timesteps, rng=rng)
+    return attach_network_layer(blockchain_df, rng=rng)
 
 
 def main(sample_timesteps: int | None = None):

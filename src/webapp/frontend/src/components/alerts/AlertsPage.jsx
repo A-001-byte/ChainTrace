@@ -1,20 +1,16 @@
 import { useAlerts } from "../../hooks/useAlerts";
 import AlertsTable from "./AlertsTable";
-import EntityDetailDrawer from "./EntityDetailDrawer";
 
-export default function AlertsPage({ selectedNodeId, onSelectNode }) {
+export default function AlertsPage({ onSelectNode }) {
   const { data, error, loading } = useAlerts();
 
   if (loading) return <p style={{ color: "var(--text-muted)" }}>Loading alerts…</p>;
 
   if (error) {
     return (
-      <div style={{
-        background: "var(--bg-card)", border: "1px dashed var(--border-color)",
-        borderRadius: "10px", padding: "1.5rem", color: "var(--text-secondary)",
-      }}>
-        <h3 style={{ color: "var(--warning)", marginBottom: "0.5rem" }}>Data Source Unavailable</h3>
-        <p>{error}</p>
+      <div className="panel" style={{ padding: "var(--space-5)", borderStyle: "dashed" }}>
+        <h3 style={{ color: "var(--signal)", marginBottom: "var(--space-2)" }}>Data Source Unavailable</h3>
+        <p style={{ color: "var(--text-secondary)" }}>{error}</p>
       </div>
     );
   }
@@ -25,10 +21,37 @@ export default function AlertsPage({ selectedNodeId, onSelectNode }) {
 
   return (
     <div>
-      <h2 style={{ marginBottom: "1rem" }}>Alert Investigation</h2>
-      <AlertsTable title="Top Risk Wallets" rows={wallets} onSelectRow={onSelectNode} />
-      <AlertsTable title="Top Risk Transactions" rows={txs} onSelectRow={onSelectNode} />
-      <EntityDetailDrawer nodeId={selectedNodeId} onClose={() => onSelectNode(null)} />
+      <div className="page-header">
+        <h2>Alert Investigation</h2>
+        <p className="lede">
+          Ranked entities from the scored transaction graph. Wallets and transactions are
+          kept in separate panels so a small number of flagged transactions can't be lost
+          at the bottom of a much longer wallet list. Click any row for its full record.
+        </p>
+      </div>
+
+      {/* Two independently paginated panels, side by side on wide screens. */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
+        gap: "var(--space-4)",
+        alignItems: "start",
+      }}>
+        <AlertsTable
+          title="Wallets"
+          subtitle="Addresses ranked by composite risk score"
+          accent="var(--accent-purple)"
+          rows={wallets}
+          onSelectRow={onSelectNode}
+        />
+        <AlertsTable
+          title="Transactions"
+          subtitle="Flagged transactions — kept visible, not buried under wallets"
+          accent="var(--accent-blue)"
+          rows={txs}
+          onSelectRow={onSelectNode}
+        />
+      </div>
     </div>
   );
 }

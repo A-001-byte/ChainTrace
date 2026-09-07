@@ -232,3 +232,72 @@ def test_graph_endpoint_accepts_focus_query_param(client):
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
     assert "wallet_AAA" in html
+
+
+# --- Additive endpoints: /api/graph-data and /api/entity-lookup ---------------------
+# Both were added for the redesigned dashboard. The pre-existing /api/entity and
+# /api/graph routes are deliberately left alone; test_entity_endpoint_contract_is_unchanged
+# below is the guard that proves the new lookup did not loosen the old one.
+
+
+def test_graph_data_endpoint_encodes_cluster_risk_and_type_per_node(client):
+    resp = client.get("/api/graph-data")
+    assert resp.status_code == 200
+    body = resp.get_json()
+
+    assert body["alert_node_count"] == 3
+    scored = [n for n in body["nodes"] if not n["is_context"]]
+    assert len(scored) == 3
+
+    # The three encodings the graph draws with must all be present per scored node.
+    aaa = next(n for n in scored if n["id"] == "wallet_AAA")
+    assert aaa["cluster_id"] == 5
+    assert aaa["risk_score"] == 0.91
+    assert aaa["node_type"] == "wallet"
+
+
+def test_graph_data_marks_neighbourhood_as_context_not_scored(client):
+    body = client.get("/api/graph-data").get_json()
+    context = [n for n in body["nodes"] if n["is_context"]]
+    # Context nodes are drawn muted precisely because they carry no persisted score --
+    # they must never come back with a fabricated risk_score.
+    assert all(n["risk_score"] is None for n in context)
+    assert all(n["cluster_id"] is None for n in context)
+
+
+def test_entity_lookup_returns_full_record_for_a_ranked_alert(client):
+    body = client.get("/api/entity-lookup/wallet_AAA").get_json()
+    assert body["in_top_alerts"] is True
+    assert body["alert"]["node_id"] == "wallet_AAA"
+    assert body["alert"]["risk_score"] == 0.91
+    assert len(body["linked_transactions"]) == 1
+
+
+def test_entity_lookup_resolves_an_entity_outside_the_ranked_alerts(client):
+    # tx_124 exists in unified_dataset.csv but is not in ranked_alerts.csv -- the exact
+    # case the search box exists for, and the case /api/entity cannot serve.
+    resp = client.get("/api/entity-lookup/tx_124")
+    assert resp.status_code == 200
+    body = resp.get_json()
+
+    assert body["in_top_alerts"] is False
+    assert body["alert"]["node_id"] == "tx_124"
+    assert body["alert"]["node_type"] == "tx"
+    # Real dataset fields come through...
+    assert body["alert"]["geo_country"] == "US"
+    assert body["alert"]["transaction_count"] == 1
+    # ...but scores that were never persisted stay null rather than being invented as 0.
+    assert body["alert"]["risk_score"] is None
+    assert body["alert"]["cluster_id"] is None
+
+
+def test_entity_lookup_404s_for_an_id_in_neither_source(client):
+    resp = client.get("/api/entity-lookup/wallet_does_not_exist_anywhere")
+    assert resp.status_code == 404
+
+
+def test_entity_endpoint_contract_is_unchanged_by_the_new_lookup(client):
+    # /api/entity stays restricted to the ranked alerts. The broader search lives only in
+    # /api/entity-lookup, so nothing that depended on this 404 behaviour changed.
+    assert client.get("/api/entity/tx_124").status_code == 404
+    assert client.get("/api/entity/wallet_AAA").status_code == 200

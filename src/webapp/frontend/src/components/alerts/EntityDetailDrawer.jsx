@@ -111,6 +111,23 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
 
             {data && (
               <motion.div variants={sectionsContainer} initial="hidden" animate="visible">
+                {data.in_top_alerts === false && (
+                  <motion.div variants={section} style={{
+                    background: "var(--surface-sunken)", border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)", padding: "0.7rem", marginBottom: "var(--space-3)",
+                  }}>
+                    <div className="eyebrow" style={{ color: "var(--text-secondary)", marginBottom: 4 }}>
+                      Outside current top alerts
+                    </div>
+                    <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                      Found in the scored dataset but not in the ranked alert set, so no risk
+                      score, cluster, or explanation was persisted for it. Network metadata and
+                      linked transactions below are real; the score fields are genuinely absent,
+                      not zero.
+                    </p>
+                  </motion.div>
+                )}
+
                 <motion.div variants={section}>
                   <SectionTitle>Entity</SectionTitle>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>

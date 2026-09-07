@@ -1,23 +1,27 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import RiskPill from "../shared/RiskPill";
 import { motionTokens } from "../../lib/motionTokens";
+import { clusterColor } from "../../lib/clusterColors";
 
-// Only the first N rows are staggered; everything past that shares the last delay so a
-// 48-row table never feels like it's slowly dealing cards.
+// Only the first N rows on a page are staggered; the rest share the last delay so a full
+// page never feels like it's slowly dealing cards.
 const MAX_STAGGERED_ROWS = 10;
 const PER_ROW_DELAY = 0.03;
 
-// Same hue as --bg-card-hover (#1a2336), written as rgba so the hover transition
-// interpolates alpha directly instead of passing through a grey "transparent".
-const ROW_BG_IDLE = "rgba(26, 35, 54, 0)";
-const ROW_BG_HOVER = "rgba(26, 35, 54, 1)";
+// Same hue as --surface-3, written as rgba so the hover transition interpolates alpha
+// directly instead of passing through a grey "transparent".
+const ROW_BG_IDLE = "rgba(30, 42, 65, 0)";
+const ROW_BG_HOVER = "rgba(30, 42, 65, 1)";
 
-export default function AlertsTable({ title, rows, onSelectRow }) {
+const PAGE_SIZE = 12;
+
+export default function AlertsTable({ title, subtitle, accent, rows, onSelectRow }) {
   const reduceMotion = useReducedMotion();
   const [sortField, setSortField] = useState("risk_score");
   const [sortDir, setSortDir] = useState("desc");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
 
   const safeRows = Array.isArray(rows) ? rows : [];
 
@@ -33,6 +37,14 @@ export default function AlertsTable({ title, rows, onSelectRow }) {
       return av > bv ? dir : av < bv ? -dir : 0;
     });
   }, [safeRows, search, sortField, sortDir]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  // Filtering/sorting can shrink the list under the current page -- snap back rather than
+  // stranding the user on an empty page.
+  useEffect(() => { setPage((p) => Math.min(p, pageCount - 1)); }, [pageCount]);
+
+  const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   function toggleSort(field) {
     if (sortField === field) {
@@ -54,38 +66,41 @@ export default function AlertsTable({ title, rows, onSelectRow }) {
   ];
 
   return (
-    <div style={{ marginBottom: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
-        <h3 style={{ color: "var(--text-primary)", fontSize: "0.95rem" }}>
-          {title} <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>({safeRows.length})</span>
-        </h3>
+    <section className="panel" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <header style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        gap: "var(--space-3)", padding: "var(--space-4)",
+        borderBottom: "1px solid var(--border-subtle)", flexWrap: "wrap",
+      }}>
+        <div style={{ borderLeft: `3px solid ${accent}`, paddingLeft: "var(--space-3)" }}>
+          <h3 style={{ color: "var(--text-primary)" }}>
+            {title}{" "}
+            <span className="mono" style={{ color: "var(--text-faint)", fontWeight: 400, fontSize: "var(--text-sm)" }}>
+              ({safeRows.length})
+            </span>
+          </h3>
+          {subtitle && (
+            <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2 }}>{subtitle}</div>
+          )}
+        </div>
         <input
-          placeholder="Search node ID…"
+          className="input"
+          placeholder="Filter node ID…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            background: "var(--bg-card)", border: "1px solid var(--border-color)",
-            borderRadius: "6px", padding: "0.35rem 0.6rem", color: "var(--text-primary)",
-            fontSize: "0.8rem", width: "200px",
-          }}
+          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+          style={{ width: "190px" }}
         />
-      </div>
+      </header>
 
-      <div style={{ border: "1px solid var(--border-color)", borderRadius: "8px", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+      <div style={{ overflowX: "auto" }}>
+        <table className="data-table">
           <thead>
-            <tr style={{ background: "var(--bg-card)" }}>
+            <tr>
               {columns.map((c) => (
                 <th
                   key={c.key}
                   onClick={() => toggleSort(c.key)}
-                  style={{
-                    textAlign: "left", padding: "0.6rem 0.8rem", cursor: "pointer",
-                    color: sortField === c.key ? "var(--accent-cyan)" : "var(--text-secondary)",
-                    borderBottom: "1px solid var(--border-color)", fontWeight: 600,
-                    textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.04em",
-                    whiteSpace: "nowrap",
-                  }}
+                  className={sortField === c.key ? "is-sorted" : ""}
                 >
                   {c.label}{sortField === c.key ? (sortDir === "desc" ? " ▼" : " ▲") : ""}
                 </th>
@@ -93,9 +108,9 @@ export default function AlertsTable({ title, rows, onSelectRow }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={columns.length} style={{ padding: "1rem", color: "var(--text-muted)" }}>No matching entities.</td></tr>
-            ) : filtered.map((row, i) => (
+            {pageRows.length === 0 ? (
+              <tr><td colSpan={columns.length} style={{ padding: "var(--space-5)", color: "var(--text-muted)" }}>No matching entities.</td></tr>
+            ) : pageRows.map((row, i) => (
               <motion.tr
                 key={row.node_id ?? i}
                 initial={{ opacity: 0, y: reduceMotion ? 0 : motionTokens.distance.sm, backgroundColor: ROW_BG_IDLE }}
@@ -109,22 +124,26 @@ export default function AlertsTable({ title, rows, onSelectRow }) {
                   backgroundColor: ROW_BG_HOVER,
                   transition: { duration: motionTokens.duration.fast, ease: motionTokens.easing.sharp },
                 }}
-                style={{ borderBottom: "1px solid var(--border-color)", cursor: "pointer" }}
+                style={{ cursor: "pointer" }}
                 onClick={() => onSelectRow?.(row.node_id)}
               >
-                <td style={{ padding: "0.55rem 0.8rem", fontFamily: "var(--font-mono)" }} title={row.node_id}>
-                  {String(row.node_id ?? "-").length > 28 ? String(row.node_id).slice(0, 28) + "…" : (row.node_id ?? "-")}
+                <td className="mono" style={{ color: "var(--text-primary)" }} title={row.node_id}>
+                  {String(row.node_id ?? "-").length > 26 ? String(row.node_id).slice(0, 26) + "…" : (row.node_id ?? "-")}
                 </td>
-                <td style={{ padding: "0.55rem 0.8rem" }}>{row.label ?? "-"}</td>
-                <td style={{ padding: "0.55rem 0.8rem", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>{row.cluster_id ?? "-"}</td>
-                <td style={{ padding: "0.55rem 0.8rem" }}><RiskPill score={row.risk_score} /></td>
-                <td style={{ padding: "0.55rem 0.8rem", color: "var(--text-secondary)" }}>
+                <td>{row.label ?? "-"}</td>
+                <td className="mono">
+                  {row.cluster_id !== null && row.cluster_id !== undefined ? (
+                    <span style={{ color: clusterColor(row.cluster_id) }}>c{row.cluster_id}</span>
+                  ) : "-"}
+                </td>
+                <td><RiskPill score={row.risk_score} /></td>
+                <td className="mono">
                   {typeof row.classifier_confidence === "number" ? row.classifier_confidence.toFixed(3) : "-"}
                 </td>
-                <td style={{ padding: "0.55rem 0.8rem", color: "var(--text-secondary)" }}>
+                <td className="mono">
                   {typeof row.anomaly_score === "number" ? row.anomaly_score.toFixed(3) : "-"}
                 </td>
-                <td style={{ padding: "0.55rem 0.8rem", color: "var(--text-secondary)", maxWidth: "280px" }} title={row.reason}>
+                <td style={{ maxWidth: "260px", fontSize: "var(--text-xs)" }} title={row.reason}>
                   {row.reason ?? "-"}
                 </td>
               </motion.tr>
@@ -132,6 +151,25 @@ export default function AlertsTable({ title, rows, onSelectRow }) {
           </tbody>
         </table>
       </div>
-    </div>
+
+      <footer style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-subtle)",
+        gap: "var(--space-3)",
+      }}>
+        <span className="mono" style={{ fontSize: "var(--text-2xs)", color: "var(--text-faint)" }}>
+          {filtered.length === 0
+            ? "0 of 0"
+            : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
+        </span>
+        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+          <button className="btn" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>‹ Prev</button>
+          <span className="mono" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", minWidth: "4.5rem", textAlign: "center" }}>
+            Page {page + 1} / {pageCount}
+          </span>
+          <button className="btn" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>Next ›</button>
+        </div>
+      </footer>
+    </section>
   );
 }

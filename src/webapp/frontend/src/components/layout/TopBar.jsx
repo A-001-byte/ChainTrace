@@ -1,15 +1,19 @@
-export default function TopBar() {
+import EntitySearch from "../shared/EntitySearch";
+
+export default function TopBar({ onLookupEntity }) {
   return (
     <header className="topbar">
-      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-        <strong style={{ fontSize: "1.05rem", letterSpacing: "-0.01em" }}>
-          Chain<span style={{ color: "var(--accent-cyan)" }}>Trace</span>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", flexShrink: 0 }}>
+        <strong style={{ fontSize: "var(--text-lg)", letterSpacing: "var(--tracking-tight)" }}>
+          Chain<span style={{ color: "var(--accent)" }}>Trace</span>
         </strong>
-        <span style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
+        <span style={{ color: "var(--text-faint)", fontSize: "var(--text-2xs)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>
           Bitcoin Forensics &amp; Threat Intelligence
         </span>
       </div>
-      <div style={{ display: "flex", gap: "0.6rem" }}>
+
+      <div style={{ display: "flex", gap: "var(--space-4)", alignItems: "center" }}>
+        <EntitySearch onSubmit={onLookupEntity} />
         <span className="status-badge"><span className="dot" /> System Operational</span>
       </div>
     </header>

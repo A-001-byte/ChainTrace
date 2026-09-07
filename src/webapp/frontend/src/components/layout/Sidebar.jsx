@@ -1,13 +1,15 @@
+import { Fragment } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens } from "../../lib/motionTokens";
 
 const SECTIONS = [
-  { id: "overview", label: "Overview" },
-  { id: "alerts", label: "Alerts" },
-  { id: "graph", label: "Forensic Graph" },
-  { id: "geo", label: "Geo Intelligence" },
-  { id: "pattern", label: "Pattern Intelligence" },
-  { id: "system", label: "System / About" },
+  { id: "overview", label: "Overview", group: "Monitor" },
+  { id: "alerts", label: "Alerts", group: "Monitor" },
+  { id: "graph", label: "Forensic Graph", group: "Investigate" },
+  { id: "kickdown", label: "Kick Down Doors", group: "Investigate" },
+  { id: "geo", label: "Geo Intelligence", group: "Intelligence" },
+  { id: "pattern", label: "Pattern Intelligence", group: "Intelligence" },
+  { id: "system", label: "System / About", group: "Intelligence" },
 ];
 
 export default function Sidebar({ active, onSelect }) {
@@ -15,10 +17,17 @@ export default function Sidebar({ active, onSelect }) {
 
   return (
     <nav className="sidebar">
-      {SECTIONS.map((s) => {
+      {SECTIONS.map((s, i) => {
         const isActive = active === s.id;
+        const startsGroup = i === 0 || SECTIONS[i - 1].group !== s.group;
         return (
-          <div key={s.id} className="nav-item-wrap">
+          <Fragment key={s.id}>
+            {/* Grouped so the sidebar reads as a workflow (monitor -> investigate ->
+                intelligence) instead of a flat list of seven equal-weight links.
+                Kept OUTSIDE .nav-item-wrap: the active indicator is inset:0 on that
+                wrapper and would otherwise paint over the heading. */}
+            {startsGroup && <div className="sidebar-heading">{s.group}</div>}
+            <div className="nav-item-wrap">
             {isActive && (
               <motion.div
                 layoutId="sidebar-active-indicator"
@@ -40,7 +49,8 @@ export default function Sidebar({ active, onSelect }) {
             >
               {s.label}
             </button>
-          </div>
+            </div>
+          </Fragment>
         );
       })}
     </nav>

@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
-import { getEntity } from "../services/api";
+import { lookupEntity } from "../services/api";
 
+// Points at /api/entity-lookup rather than /api/entity: same {alert, linked_transactions}
+// shape plus an in_top_alerts flag, but it resolves ANY node_id instead of only the top-N
+// ranked alerts -- which is what the entity search box needs. /api/entity is left in place,
+// untouched, for anything still depending on its narrower behaviour.
 export function useEntity(nodeId) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -15,7 +19,7 @@ export function useEntity(nodeId) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getEntity(nodeId)
+    lookupEntity(nodeId)
       .then((res) => { if (!cancelled) setData(res); })
       .catch((err) => { if (!cancelled) setError(err.message); })
       .finally(() => { if (!cancelled) setLoading(false); });

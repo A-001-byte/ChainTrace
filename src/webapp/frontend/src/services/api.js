@@ -27,3 +27,11 @@ export function getKickDownDoors(nodeId) {
 export function getGeo() {
   return fetchJson("/api/geo");
 }
+export function getGraphData() {
+  return fetchJson("/api/graph-data");
+}
+
+// Superset of getEntity(): resolves any node_id, not just the top-N ranked alerts.
+export function lookupEntity(nodeId) {
+  return fetchJson(`/api/entity-lookup/${encodeURIComponent(nodeId)}`);
+}

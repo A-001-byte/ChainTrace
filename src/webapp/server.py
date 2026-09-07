@@ -261,6 +261,122 @@ def _compute_geo_summary(enriched_alerts_df: pd.DataFrame, tx_df: pd.DataFrame, 
     return {"total_transactions": len(tx_df), "flagged_considered": len(flagged), "by_country": by_country, "by_asn": by_asn}
 
 
+# Graph fan-out caps. The forensic graph is a *readable* neighbourhood view, not the full
+# 1.02M-node pipeline graph -- these bound it so vis-network's physics stays interactive.
+GRAPH_MAX_TX_PER_ALERT = 2
+GRAPH_MAX_ADDRS_PER_TX = 3
+
+
+def _build_graph_payload(alerts_df: pd.DataFrame, tx_df: pd.DataFrame) -> dict:
+    """Node/edge JSON for the client-side forensic graph.
+
+    Carries the fields the frontend needs to *encode* structure visually -- cluster_id
+    (categorical colour), risk_score (node size), node_type (shape) -- rather than
+    shipping a pre-rendered picture. Alert entities are the real subjects; the
+    transactions and counterparty addresses around them are context, flagged with
+    is_context so the frontend can mute them instead of implying they were scored.
+    """
+    nodes: dict[str, dict] = {}
+    edges: list[dict] = []
+
+    def put(node_id: str, **attrs) -> None:
+        if node_id not in nodes:
+            nodes[node_id] = {"id": node_id, **attrs}
+
+    alert_ids = [str(n) for n in alerts_df["node_id"].tolist()]
+    linked_map = find_linked_transactions_bulk(tx_df, alert_ids)
+
+    # Scored entities go in FIRST, before any neighbourhood walking. An alert can also be
+    # some other alert's linked transaction; if the context pass reached it first, put()'s
+    # first-write-wins would leave a genuinely scored entity permanently marked
+    # is_context=True and drawn muted, hiding a real alert in plain sight.
+    for _, row in alerts_df.iterrows():
+        node_id = str(row["node_id"])
+        cluster_id = row.get("cluster_id")
+        risk = row.get("risk_score")
+        put(
+            node_id,
+            node_type=str(row.get("node_type") or ("tx" if node_id.startswith("tx_") else "wallet")),
+            # Native Python types only -- numpy scalars are not JSON-serializable by jsonify.
+            cluster_id=None if pd.isna(cluster_id) else int(cluster_id),
+            risk_score=None if pd.isna(risk) else float(risk),
+            label=None if pd.isna(row.get("label")) else str(row.get("label")),
+            reason=None if pd.isna(row.get("reason")) else str(row.get("reason")),
+            intent_label=None if pd.isna(row.get("intent_label")) else str(row.get("intent_label")),
+            geo_temporal_flag=bool(row.get("geo_temporal_flag")) if not pd.isna(row.get("geo_temporal_flag")) else False,
+            is_context=False,
+        )
+
+    for _, row in alerts_df.iterrows():
+        node_id = str(row["node_id"])
+        linked = linked_map.get(node_id)
+        if linked is None or linked.empty:
+            continue
+
+        for _, t_row in linked.head(GRAPH_MAX_TX_PER_ALERT).iterrows():
+            tx_node = f"tx_{t_row['txid']}"
+            if tx_node != node_id:
+                put(tx_node, node_type="tx", cluster_id=None, risk_score=None, label=None,
+                    reason=None, intent_label=None, geo_temporal_flag=False, is_context=True)
+                edges.append({"from": node_id, "to": tx_node})
+
+            seen = 0
+            for fld in ("input_addresses", "output_addresses"):
+                for addr in _parse_addr_list_for_kdd(t_row.get(fld)):
+                    if seen >= GRAPH_MAX_ADDRS_PER_TX:
+                        break
+                    w_node = f"wallet_{addr}"
+                    if w_node == node_id or w_node == tx_node:
+                        continue
+                    put(w_node, node_type="wallet", cluster_id=None, risk_score=None, label=None,
+                        reason=None, intent_label=None, geo_temporal_flag=False, is_context=True)
+                    edges.append({"from": tx_node, "to": w_node})
+                    seen += 1
+
+    return {
+        "nodes": list(nodes.values()),
+        "edges": edges,
+        "alert_node_count": len(alert_ids),
+        "caps": {"max_tx_per_alert": GRAPH_MAX_TX_PER_ALERT, "max_addrs_per_tx": GRAPH_MAX_ADDRS_PER_TX},
+    }
+
+
+def _lookup_entity_beyond_alerts(node_id: str, tx_df: pd.DataFrame) -> dict | None:
+    """Best-effort record for an entity that is NOT in the top-N ranked alerts.
+
+    Read-only lookup against already-computed unified_dataset.csv. This deliberately
+    returns risk_score/cluster_id as None rather than inventing them: only the top-N
+    alerts have persisted scores, so anything else genuinely has no score on disk, and
+    fabricating one would misrepresent the pipeline's output.
+    """
+    linked = find_linked_transactions(tx_df, node_id)
+    if linked.empty:
+        return None
+
+    def _modal(col: str):
+        if col not in linked.columns:
+            return None
+        vals = linked[col].dropna()
+        return None if vals.empty else str(vals.mode().iloc[0])
+
+    return {
+        "node_id": node_id,
+        "node_type": "tx" if node_id.startswith("tx_") else "wallet",
+        "label": _modal("label"),
+        "cluster_id": None,
+        "risk_score": None,
+        "classifier_confidence": None,
+        "anomaly_score": None,
+        "reason": None,
+        "intent_label": None,
+        "geo_temporal_flag": None,
+        "geo_temporal_reason": None,
+        "geo_country": _modal("geo_country"),
+        "asn": _modal("asn"),
+        "transaction_count": int(len(linked)),
+    }
+
+
 def _parse_addr_list_for_kdd(val: object) -> list[str]:
     """Same address-list parsing as Streamlit's Kick Down Doors expander (see
     _build_kick_down_doors_subgraph) -- ported verbatim, not reimplemented.
@@ -371,6 +487,50 @@ def create_app() -> Flask:
         tx_df, alerts_df, _, _ = _active_datasets()
         enriched = _cached_enrich_geo(alerts_df, tx_df)
         return jsonify(_compute_geo_summary(enriched, tx_df))
+
+    @app.get("/api/graph-data")
+    def api_graph_data():
+        """Node/edge JSON for the client-side forensic graph.
+
+        Additive: /api/graph (the pre-rendered pyvis HTML) is untouched and still served.
+        This exists because a picture in an iframe can't encode cluster membership or
+        report clicks back to React -- see _build_graph_payload().
+        """
+        tx_df, alerts_df, _, _ = _active_datasets()
+        return jsonify(_build_graph_payload(alerts_df, tx_df))
+
+    @app.get("/api/entity-lookup/<path:node_id>")
+    def api_entity_lookup(node_id: str):
+        """Entity drill-down for ANY node_id, not just the top-N ranked alerts.
+
+        Superset of /api/entity/<node_id>, which stays exactly as it was: same
+        {alert, linked_transactions} shape, plus an `in_top_alerts` flag. Entities outside
+        the ranked set come back with real dataset fields (geo, ASN, linked transactions)
+        and explicit nulls for the scores that were never persisted for them.
+
+        This is a read-only lookup over existing pipeline output. It does not ingest data
+        and does not re-run anything.
+        """
+        tx_df, alerts_df, _, _ = _active_datasets()
+        enriched_alerts_df = _cached_enrich_geo(alerts_df, tx_df)
+        match = enriched_alerts_df[enriched_alerts_df["node_id"].astype(str) == str(node_id)]
+
+        if not match.empty:
+            alert = json.loads(match.iloc[[0]].to_json(orient="records"))[0]
+            in_top_alerts = True
+        else:
+            alert = _lookup_entity_beyond_alerts(str(node_id), tx_df)
+            if alert is None:
+                return jsonify({
+                    "error": f"'{node_id}' was not found in the ranked alerts or the scored dataset."
+                }), 404
+            in_top_alerts = False
+
+        linked = find_linked_transactions(tx_df, str(node_id))
+        tx_cols = [c for c in ("txid", "timestamp", "src_ip", "dst_ip", "script_type", "fee", "geo_country", "asn") if c in linked.columns]
+        linked_transactions = json.loads(linked[tx_cols].head(5).to_json(orient="records")) if not linked.empty else []
+
+        return jsonify({"alert": alert, "linked_transactions": linked_transactions, "in_top_alerts": in_top_alerts})
 
     @app.get("/api/entity/<path:node_id>")
     def api_entity(node_id: str):

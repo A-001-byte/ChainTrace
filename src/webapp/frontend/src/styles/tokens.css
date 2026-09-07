@@ -1,21 +1,98 @@
 :root {
-  --bg-main: #0b0e14;
-  --bg-card: #121824;
-  --bg-card-hover: #1a2336;
-  --border-color: #232f48;
+  /* --- Surfaces -------------------------------------------------------------
+     A deliberate depth ladder instead of one flat grey with borders everywhere.
+     Depth is carried by *elevation* (surface lightness + shadow), so borders can
+     be reserved for genuine separation rather than doing all the work. */
+  --bg-base:      #070a10;  /* app floor -- deepest, behind everything */
+  --bg-canvas:    #0b0f17;  /* content region */
+  --surface-1:    #111725;  /* resting panels */
+  --surface-2:    #17203200; /* (unused alpha guard -- see --surface-2-solid) */
+  --surface-2-solid: #172032; /* raised panels: cards, table headers */
+  --surface-3:    #1e2a41;  /* hover / active surface */
+  --surface-sunken: #090d14; /* wells: graph canvas, code, chart tracks */
 
-  --accent-blue: #00b0ff;
-  --accent-cyan: #00e5ff;
-  --accent-purple: #7c4dff;
+  /* Borders: hairlines, not boxes. Only --border-strong should ever read as a line. */
+  --border-subtle: #1b2333;
+  --border:        #232f48;
+  --border-strong: #33425f;
 
-  --success: #00e676;
-  --warning: #ff9100;
-  --danger: #ff1744;
+  /* --- Text ---------------------------------------------------------------- */
+  --text-primary:   #eef2f8;
+  --text-secondary: #9fb0c9;
+  --text-muted:     #6b7c96;
+  --text-faint:     #47566e;
 
-  --text-primary: #f0f4f8;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  /* --- Accent -------------------------------------------------------------
+     Cyan is the product's identity, used for structure/wayfinding (active nav,
+     section headers, focus rings) -- never for risk. Risk has its own scale
+     below, so a red thing always means "elevated risk" and never "decoration". */
+  --accent:         #22d3ee;
+  --accent-strong:  #67e8f9;
+  --accent-dim:     rgba(34, 211, 238, 0.14);
+  --accent-line:    rgba(34, 211, 238, 0.32);
+
+  /* --- Risk scale (semantic; reserved) ------------------------------------- */
+  --risk-critical: #ff2d55;
+  --risk-high:     #ff6b35;
+  --risk-medium:   #ffb020;
+  --risk-low:      #22c55e;
+  --risk-none:     #64748b;
+
+  --risk-critical-dim: rgba(255, 45, 85, 0.13);
+  --risk-high-dim:     rgba(255, 107, 53, 0.13);
+  --risk-medium-dim:   rgba(255, 176, 32, 0.13);
+  --risk-low-dim:      rgba(34, 197, 94, 0.13);
+
+  /* Signal colour for the geo-temporal / evasion USP -- amber, distinct from risk red */
+  --signal:      #ffb020;
+  --signal-dim:  rgba(255, 176, 32, 0.10);
+  --signal-line: rgba(255, 176, 32, 0.45);
+
+  /* --- Legacy aliases -------------------------------------------------------
+     Older components still reference these names; mapped onto the new system so
+     nothing renders unstyled mid-redesign. */
+  --bg-main:        var(--bg-canvas);
+  --bg-card:        var(--surface-1);
+  --bg-card-hover:  var(--surface-3);
+  --border-color:   var(--border);
+  --accent-cyan:    var(--accent);
+  --accent-blue:    #38bdf8;
+  --accent-purple:  #a78bfa;
+  --success:        var(--risk-low);
+  --warning:        var(--signal);
+  --danger:         var(--risk-critical);
+
+  /* --- Typographic scale --------------------------------------------------- */
+  --text-2xs: 0.68rem;
+  --text-xs:  0.75rem;
+  --text-sm:  0.82rem;
+  --text-base: 0.9rem;
+  --text-lg:  1.05rem;
+  --text-xl:  1.35rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.4rem;
+
+  --tracking-wide: 0.08em;
+  --tracking-tight: -0.02em;
+
+  /* --- Space scale --------------------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+
+  /* Elevation does the separating that borders used to. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 16px -4px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 18px 48px -12px rgba(0, 0, 0, 0.7);
 
   --font-sans: -apple-system, "Segoe UI", Inter, sans-serif;
-  --font-mono: "Consolas", "SFMono-Regular", monospace;
+  --font-mono: "JetBrains Mono", "Consolas", "SFMono-Regular", monospace;
 }

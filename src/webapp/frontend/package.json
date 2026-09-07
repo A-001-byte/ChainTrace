@@ -12,7 +12,9 @@
   "dependencies": {
     "motion": "^13.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "vis-data": "^8.0.5",
+    "vis-network": "^10.1.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

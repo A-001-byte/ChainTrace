@@ -42,6 +42,7 @@ OPTIONAL_ALERT_COLS = [
     "cluster_id",
     "reason",
     "label",
+    "is_known_label",
     "geo_country",
     "asn",
 ]
@@ -181,6 +182,8 @@ def sanitize_alerts_df(df: pd.DataFrame) -> tuple[bool, str, pd.DataFrame]:
         clean_df["anomaly_score"] = clean_df["risk_score"]
     if "label" not in clean_df.columns:
         clean_df["label"] = "unknown"
+    if "is_known_label" not in clean_df.columns:
+        clean_df["is_known_label"] = clean_df["label"].isin(["illicit", "licit"])
     if "geo_country" not in clean_df.columns:
         clean_df["geo_country"] = "Unknown"
     if "asn" not in clean_df.columns:

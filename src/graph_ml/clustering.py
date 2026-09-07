@@ -56,3 +56,90 @@ def illicit_ratio_per_cluster(graph: nx.Graph) -> dict[int, float]:
         total = counts.get("illicit", 0) + counts.get("licit", 0)
         ratios[cluster_id] = counts.get("illicit", 0) / total if total > 0 else 0.0
     return ratios
+
+
+def kick_down_doors(
+    graph: nx.Graph,
+    flagged_node_ids: list[str],
+    top_n: int = 10,
+) -> list[dict[str, float | str | int | bool]]:
+    """Kick Down Doors USP: Betweenness centrality & articulation point analysis.
+
+    Identifies high-leverage target nodes whose removal maximally disconnects or disrupts
+    the money-flow pathways among flagged entities and their immediate neighborhood.
+
+    Args:
+        graph: The NetworkX graph.
+        flagged_node_ids: List of flagged node IDs (e.g. top alert entities).
+        top_n: Maximum number of high-leverage nodes to return.
+
+    Returns:
+        List of dicts ordered by impact score descending, containing:
+            - node_id: str
+            - node_type: str ("tx" or "wallet")
+            - betweenness: float
+            - is_articulation_point: bool
+            - cluster_id: int | None
+            - label: str
+            - impact_score: float
+            - reason: str
+    """
+    valid_flagged = [n for n in flagged_node_ids if graph.has_node(n)]
+    if not valid_flagged:
+        logger.warning("No valid flagged nodes found in graph for Kick Down Doors analysis.")
+        return []
+
+    # Build local subgraph including flagged nodes and their immediate 1-hop neighbors
+    neighborhood = set(valid_flagged)
+    for node in valid_flagged:
+        neighborhood.update(graph.neighbors(node))
+
+    subgraph = graph.subgraph(neighborhood).copy()
+    if subgraph.number_of_nodes() == 0:
+        return []
+
+    undirected_subgraph = subgraph.to_undirected()
+
+    # Calculate network metrics
+    betweenness_map = nx.betweenness_centrality(undirected_subgraph)
+    articulation_points = set(nx.articulation_points(undirected_subgraph))
+
+    results = []
+    for node in subgraph.nodes():
+        attrs = subgraph.nodes[node]
+        node_type = attrs.get("node_type", "tx" if node.startswith("tx_") else "wallet")
+        b_score = float(betweenness_map.get(node, 0.0))
+        is_ap = node in articulation_points
+        degree = subgraph.degree(node)
+
+        # Impact score combines centrality, articulation status, and degree weight
+        ap_multiplier = 1.5 if is_ap else 1.0
+        degree_weight = degree / max(subgraph.number_of_nodes(), 1)
+        impact_score = round(b_score * ap_multiplier + degree_weight * 0.5, 4)
+
+        reasons = []
+        if is_ap:
+            reasons.append("Articulation Point (single point of failure)")
+        if b_score > 0.1:
+            reasons.append(f"High Centrality ({b_score:.3f})")
+        if degree > 3:
+            reasons.append(f"High Connectivity (degree {degree})")
+        if not reasons:
+            reasons.append("Network Bridge")
+
+        reason_str = "; ".join(reasons)
+
+        results.append({
+            "node_id": node,
+            "node_type": node_type,
+            "betweenness": round(b_score, 4),
+            "is_articulation_point": is_ap,
+            "cluster_id": attrs.get("cluster"),
+            "label": attrs.get("label", "unknown"),
+            "impact_score": impact_score,
+            "reason": reason_str,
+        })
+
+    results.sort(key=lambda x: x["impact_score"], reverse=True)
+    return results[:top_n]
+

@@ -416,3 +416,226 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--text-muted);
   font-size: 0.78rem;
 }
+
+/* ---------- Header extras: source badge, system time, warnings ---------- */
+
+.system-time {
+  margin: 0.6rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.warnings-banner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.warning-row {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+  font-size: 0.82rem;
+}
+
+/* ---------- How It Works ---------- */
+
+.how-it-works {
+  max-width: 1200px;
+  margin: 1.5rem auto 0;
+  padding: 0 2rem;
+}
+
+.how-it-works summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.8rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  list-style: none;
+}
+
+.how-it-works summary::-webkit-details-marker { display: none; }
+
+.how-it-works-body {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.how-it-works-body p { margin: 0.5rem 0; }
+
+.security-note {
+  margin-top: 0.75rem !important;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--success);
+}
+
+/* ---------- Stat card accents ---------- */
+
+.stat-accent-danger { border-top: 3px solid var(--danger); }
+.stat-accent-danger .stat-value { color: var(--danger); }
+.stat-accent-warning { border-top: 3px solid var(--warning); }
+.stat-accent-warning .stat-value { color: var(--warning); }
+.stat-accent-cyan { border-top: 3px solid var(--accent-cyan); }
+.stat-accent-cyan .stat-value { color: var(--accent-cyan); }
+
+/* ---------- Filter toolbar ---------- */
+
+.filter-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.control-wide { min-width: 220px; flex: 1 1 220px; }
+
+.control-wide input[type="text"] {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.65rem;
+}
+
+.control input[type="range"] { width: 120px; }
+
+select[multiple] {
+  min-width: 110px;
+  padding: 0.2rem;
+}
+
+/* ---------- Alert row selection ---------- */
+
+.alert-row { cursor: pointer; }
+.alert-row-selected { background: rgba(0, 229, 255, 0.06); }
+.alert-row-selected td:first-child { border-left: 3px solid var(--accent-cyan); }
+
+/* ---------- Entity drill-down panel ---------- */
+
+.drilldown-panel {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+
+.drilldown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.drilldown-header.risk-high { border-left: 4px solid var(--danger); padding-left: 0.9rem; }
+.drilldown-header.risk-medium { border-left: 4px solid var(--warning); padding-left: 0.9rem; }
+.drilldown-header.risk-low { border-left: 4px solid var(--success); padding-left: 0.9rem; }
+
+.drilldown-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.drilldown-id {
+  margin: 0.2rem 0 0;
+  color: var(--accent-cyan);
+  font-size: 1.1rem;
+}
+
+.drilldown-risk-badge {
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  font-weight: 700;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.drilldown-risk-badge.risk-high { color: var(--danger); border: 1px solid var(--danger); }
+.drilldown-risk-badge.risk-medium { color: var(--warning); border: 1px solid var(--warning); }
+.drilldown-risk-badge.risk-low { color: var(--success); border: 1px solid var(--success); }
+
+.drilldown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.drilldown-col h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.drilldown-col p {
+  margin: 0.35rem 0;
+  font-size: 0.84rem;
+}
+
+.drilldown-col code {
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.drilldown-caveat {
+  color: var(--text-muted);
+  font-size: 0.76rem !important;
+  font-style: italic;
+}
+
+.drilldown-panel h4 {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.6rem;
+}
+
+/* ---------- Geo bars: avg/max risk annotation ---------- */
+
+.bar-row {
+  grid-template-columns: 90px 1fr 46px 130px;
+}
+
+.bar-risk {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---------- Pagination (raw transaction stream) ---------- */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}

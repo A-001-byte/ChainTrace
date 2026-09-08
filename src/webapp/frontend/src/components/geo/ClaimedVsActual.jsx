@@ -1,7 +1,6 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useEntityHours } from "../../hooks/useEntityHours";
 import { centroidFor } from "../../lib/countryCentroids";
-import { motionTokens } from "../../lib/motionTokens";
 
 /**
  * The methodology explainer: shows the mismatch instead of restating the sentence.
@@ -13,18 +12,12 @@ import { motionTokens } from "../../lib/motionTokens";
  *               outside the shaded band, the claim doesn't explain the behaviour.
  */
 export default function ClaimedVsActual({ nodeId }) {
-  const reduceMotion = useReducedMotion();
+  const rm = useReducedMotion();
   const { data, error, loading } = useEntityHours(nodeId);
 
-  if (!nodeId) {
-    return (
-      <p style={{ color: "var(--color-ash)", fontSize: "var(--text-caption)" }}>
-        Select a flagged wallet to see its claimed working window against its real activity hours.
-      </p>
-    );
-  }
-  if (loading) return <p style={{ color: "var(--color-ash)", fontSize: "var(--text-caption)" }}>Loading activity hours…</p>;
-  if (error) return <p style={{ color: "var(--signal)", fontSize: "var(--text-caption)" }}>{error}</p>;
+  if (!nodeId) return <p className="note">Select a flagged wallet to see its claimed working window against its real activity hours.</p>;
+  if (loading) return <p className="note">Loading activity hours…</p>;
+  if (error) return <p className="note down">{error}</p>;
   if (!data) return null;
 
   const hours = data.local_hours ?? data.utc_hours ?? [];
@@ -33,97 +26,52 @@ export default function ClaimedVsActual({ nodeId }) {
   const end = data.business_hour_end;
   const country = data.claimed_country;
   const countryName = centroidFor(country)?.name ?? country ?? "—";
-  const insidePct = data.claimed_business_fraction !== null && data.claimed_business_fraction !== undefined
-    ? Math.round(data.claimed_business_fraction * 100)
-    : null;
-
-  const offsetLabel = data.claimed_utc_offset === null || data.claimed_utc_offset === undefined
-    ? "—"
-    : `UTC${data.claimed_utc_offset >= 0 ? "+" : ""}${data.claimed_utc_offset}`;
+  const inside = data.claimed_business_fraction === null || data.claimed_business_fraction === undefined
+    ? null : Math.round(data.claimed_business_fraction * 100);
+  const offset = data.claimed_utc_offset === null || data.claimed_utc_offset === undefined
+    ? "—" : `UTC${data.claimed_utc_offset >= 0 ? "+" : ""}${data.claimed_utc_offset}`;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(150px, 200px) 1fr", gap: "var(--spacing-24)", alignItems: "start" }}>
-      {/* CLAIMED */}
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(140px, 190px) minmax(0, 1fr)", gap: 32, alignItems: "start" }}>
       <div>
-        <span className="eyebrow" style={{ display: "block", marginBottom: "var(--spacing-8)" }}>Claimed</span>
-        <div className="mono" style={{
-          fontSize: "var(--text-subheading)", lineHeight: "var(--leading-subheading)",
-          letterSpacing: "var(--tracking-subheading)", fontWeight: "var(--weight-medium)",
-          color: "var(--color-bone)",
-        }}>
-          {country ?? "—"}
-        </div>
-        <div style={{ fontSize: "var(--text-caption)", color: "var(--color-fog)", marginTop: "var(--spacing-4)" }}>
-          {countryName}
-        </div>
-        <div className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)", marginTop: "var(--spacing-12)" }}>
-          {offsetLabel}
-        </div>
-        <div className="badge" style={{
-          marginTop: "var(--spacing-8)",
-          color: "var(--color-mist)", background: "rgba(255,255,255,0.02)",
-          boxShadow: "var(--color-graphite) 0px 0px 0px 1px inset",
-        }}>
-          <span className="mono">{String(start).padStart(2, "0")}:00–{String(end).padStart(2, "0")}:00</span>&nbsp;local
-        </div>
+        <div className="label">Claimed</div>
+        <div style={{ fontSize: "var(--t-36)", fontWeight: 700, letterSpacing: "-0.76px", lineHeight: 1.2, marginTop: 4 }}>{country ?? "—"}</div>
+        <div className="meta" style={{ marginTop: 4 }}>{countryName}</div>
+        <div className="meta" style={{ marginTop: 16 }}>{offset} · working day {String(start).padStart(2, "0")}:00–{String(end).padStart(2, "0")}:00</div>
       </div>
 
-      {/* ACTUAL */}
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--spacing-8)" }}>
-          <span className="eyebrow">Actual activity, in {country ?? "claimed"} local time</span>
-          {insidePct !== null && (
-            <span className="mono" style={{ fontSize: "var(--text-caption)", color: "var(--signal)" }}>
-              {insidePct}% inside the claimed working window
-            </span>
-          )}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
+          <span className="label">Actual activity, in {country ?? "claimed"} local time</span>
+          {inside !== null && <span className="meta"><b>{inside}%</b> inside the claimed working window</span>}
         </div>
 
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 84, position: "relative" }}>
-          {/* Shaded working window behind the bars */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 96, position: "relative" }}>
           <div style={{
             position: "absolute", left: `${(start / 24) * 100}%`, width: `${((end - start) / 24) * 100}%`,
-            top: 0, bottom: 0, background: "rgba(255,255,255,0.035)",
-            borderLeft: "1px solid var(--color-graphite)", borderRight: "1px solid var(--color-graphite)",
-            pointerEvents: "none",
+            top: 0, bottom: 0, background: "var(--linen)", borderRadius: 4, pointerEvents: "none",
           }} />
           {hours.map((count, h) => {
             const inWindow = h >= start && h < end;
             return (
-              <motion.div
-                key={h}
-                initial={{ scaleY: reduceMotion ? 1 : 0 }}
-                animate={{ scaleY: 1 }}
-                transition={{
-                  duration: reduceMotion ? 0 : motionTokens.duration.normal,
-                  ease: motionTokens.easing.smooth,
-                  delay: reduceMotion ? 0 : h * 0.012,
-                }}
-                title={`${String(h).padStart(2, "0")}:00 — ${count} tx`}
+              <motion.div key={h} title={`${String(h).padStart(2, "0")}:00 — ${count} transactions`}
+                initial={{ scaleY: rm ? 1 : 0 }} animate={{ scaleY: 1 }}
+                transition={{ duration: rm ? 0 : 0.2, ease: [0.4, 0, 0.2, 1], delay: rm ? 0 : h * 0.008 }}
                 style={{
-                  flex: 1,
-                  height: `${Math.max(2, (count / peak) * 100)}%`,
-                  transformOrigin: "bottom",
-                  background: count === 0
-                    ? "var(--color-graphite)"
-                    : inWindow ? "var(--color-mist)" : "var(--signal)",
-                  borderRadius: "var(--radius-small)",
-                }}
-              />
+                  position: "relative", flex: 1, height: `${Math.max(2, (count / peak) * 100)}%`, transformOrigin: "bottom",
+                  background: count === 0 ? "var(--hair)" : inWindow ? "var(--ash)" : "var(--violet)", borderRadius: 3,
+                }} />
             );
           })}
         </div>
 
-        <div className="mono" style={{
-          display: "flex", justifyContent: "space-between",
-          fontSize: "var(--text-caption)", color: "var(--color-ash)", marginTop: "var(--spacing-4)",
-        }}>
+        <div className="meta" style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
           <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
         </div>
 
-        <p style={{ fontSize: "var(--text-caption)", color: "var(--color-fog)", marginTop: "var(--spacing-12)", lineHeight: 1.5 }}>
-          Bars outside the shaded band are transactions happening when the claimed country
-          is asleep. Amber bars are that out-of-window activity; {data.transaction_count} transactions total.
+        <p className="note" style={{ marginTop: 16 }}>
+          Violet bars are transactions happening while the claimed country is asleep; grey bars fall inside its working day.
+          {" "}{data.transaction_count} transactions in total.
         </p>
       </div>
     </div>

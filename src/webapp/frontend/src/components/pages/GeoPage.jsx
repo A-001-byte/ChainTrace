@@ -1,121 +1,91 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useGeo } from "../../hooks/useGeo";
 import { useAlerts } from "../../hooks/useAlerts";
+import { CHART_COLORS as C, riskColor } from "../../lib/chartColors";
+import { claimedCountryFrom } from "../../lib/geoClaims";
 import ClaimedVsActual from "../geo/ClaimedVsActual";
-import { Panel, Bar, Tag, Empty, ErrorPanel, Reveal, short } from "../ui";
+import { Card, Tile, Tiles, Section, Tag, Empty, ErrorCard, Reveal } from "../ui";
+import { short, num } from "../../lib/format";
+import { HBars, CountBars } from "../charts";
 
 const GeoTemporalMap = lazy(() => import("../geo/GeoTemporalMap"));
-
-/** Claimed country comes from the detector's own sentence — the authoritative record of
- *  what it judged. The alert row's geo_country is derived differently and disagrees for
- *  some wallets, which would place dots on the wrong country. */
-export function claimedCountryFrom(reason) {
-  const m = /^claims\s+([A-Z]{2})/.exec(String(reason ?? ""));
-  return m ? m[1] : null;
-}
-
-function riskColor(r) { return r >= 0.6 ? "var(--risk-hi)" : r >= 0.4 ? "var(--risk-md)" : "var(--risk-lo)"; }
-
-function GeoGroup({ title, rows, k }) {
-  const max = rows.length ? Math.max(...rows.map((r) => r.flagged_count ?? 0)) : 1;
-  return (
-    <Panel title={title} flush>
-      <table className="tbl">
-        <thead><tr><th>{k}</th><th style={{ width: "40%" }}>share</th><th className="r">flagged</th><th className="r">avg</th><th className="r">max</th></tr></thead>
-        <tbody>
-          {rows.length === 0 ? <tr><td className="mute">no data</td></tr> : rows.slice(0, 10).map((r, i) => (
-            <tr key={r[k]}>
-              <td className="fg">{r[k]}</td>
-              <td><Bar frac={(r.flagged_count ?? 0) / max} color={riskColor(r.avg_risk_score)} delay={i * 0.03} /></td>
-              <td className="r">{r.flagged_count}</td>
-              <td className="r">{r.avg_risk_score?.toFixed(2) ?? "—"}</td>
-              <td className="r">{r.max_risk_score?.toFixed(2) ?? "—"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Panel>
-  );
-}
 
 export default function GeoPage() {
   const { data, error, loading } = useGeo();
   const { data: a } = useAlerts();
   const [sel, setSel] = useState(null);
-  const rows = Array.isArray(a?.rows) ? a.rows : [];
+  const rows = useMemo(() => (Array.isArray(a?.rows) ? a.rows : []), [a]);
   const flagged = useMemo(() => rows.filter((r) => r.geo_temporal_flag === true), [rows]);
   const points = useMemo(() => flagged.map((r) => ({ nodeId: r.node_id, claimedCountry: claimedCountryFrom(r.geo_temporal_reason), reason: r.geo_temporal_reason })).filter((p) => p.claimedCountry), [flagged]);
-  const tally = useMemo(() => { const m = new Map(); for (const p of points) m.set(p.claimedCountry, (m.get(p.claimedCountry) ?? 0) + 1); return [...m.entries()].sort((x, y) => y[1] - x[1]); }, [points]);
   const explainer = sel ?? points[0]?.nodeId ?? null;
 
-  if (loading) return <Empty>loading geo intelligence…</Empty>;
-  if (error) return <ErrorPanel error={error} />;
+  if (loading) return <Empty>Loading geo intelligence…</Empty>;
+  if (error) return <ErrorCard error={error} />;
+  const byC = (data.by_country ?? []).slice(0, 10).map((r) => ({ k: r.country, n: r.flagged_count ?? 0, avg: r.avg_risk_score }));
+  const byA = (data.by_asn ?? []).slice(0, 10).map((r) => ({ k: String(r.asn), n: r.flagged_count ?? 0, avg: r.avg_risk_score }));
+  const avgC = (data.by_country ?? []).slice(0, 10).map((r) => ({ k: r.country, n: r.avg_risk_score ?? 0 }));
 
   return (
     <>
-      <Reveal>
-        <div className="prose">
-          {data.flagged_considered} flagged entities considered, out of {data.total_transactions} total transactions. Correlates network-layer signals (GeoIP, ASN) with blockchain-layer risk — not a real-world identity claim.
+      <Section eyebrow="Geo intelligence" right={<span className="eyebrow">network-layer signals · not a real-world identity claim</span>}>
+        <Reveal>
+          <Tiles>
+            <Tile k="Considered" v={num(data.flagged_considered)} s="flagged entities" />
+            <Tile k="Transactions" v={num(data.total_transactions)} s="total" />
+            <Tile k="Mismatches" v={num(flagged.length)} tone="orange" s={`of ${num(rows.length)} flagged`} />
+            <Tile k="Countries" v={num(data.by_country?.length ?? 0)} s="geoip" />
+            <Tile k="Networks" v={num(data.by_asn?.length ?? 0)} s="asn" />
+          </Tiles>
+        </Reveal>
+        <div className="grid g3">
+          <Reveal delay={0.03}><Card title="Countries" right="flagged · colour = avg risk"><HBars data={byC} name="flagged" colorBy={(e) => riskColor(e.avg)} /></Card></Reveal>
+          <Reveal delay={0.06}><Card title="Networks" right="flagged · colour = avg risk"><HBars data={byA} name="flagged" colorBy={(e) => riskColor(e.avg)} /></Card></Reveal>
+          <Reveal delay={0.09}><Card title="Risk" right="average by country"><HBars data={avgC} name="avg risk" colorBy={(e) => riskColor(e.n)} fmt={(v) => Number(v).toFixed(3)} /></Card></Reveal>
         </div>
-      </Reveal>
+      </Section>
 
-      <Reveal delay={0.04}>
-        <Panel title="geo-temporal mismatch · claimed vs actual" right={`${flagged.length} of ${rows.length} flagged`}>
-          <div className="prose" style={{ fontSize: "var(--fs-sm)", marginBottom: 10 }}>
-            A wallet's GeoIP puts it in one country, but its transactions cluster in the working hours of a different one. People transact when they are awake, and a VPN exit node moves the apparent country without moving the clock. Below: the claimed country's 09:00–18:00 window against when the wallet actually transacts, in that same claimed country's local time.
-          </div>
-          <ClaimedVsActual nodeId={explainer} />
-        </Panel>
-      </Reveal>
+      <Section eyebrow="Geo-temporal mismatch" right={<span className="eyebrow">claimed country's working hours vs when the wallet actually transacts</span>}>
+        <div className="grid g3">
+          <Reveal className="span2"><Card title="Claimed vs actual" right={explainer ? short(explainer, 28) : ""}><ClaimedVsActual nodeId={explainer} /></Card></Reveal>
+          <Reveal delay={0.03}><Card title="Claims" right="by country"><CountBars rows={flagged} name="mismatches" color={C.ORANGE} map={(r) => claimedCountryFrom(r.geo_temporal_reason)} /></Card></Reveal>
+        </div>
 
-      {flagged.length > 0 && (
-        <div className="cols">
-          <Reveal delay={0.08} style={{ flex: "0 0 420px" }}>
-            <Panel title="flagged wallets" right={<span className="mute">geo_temporal_flag = true only</span>} flush>
-              <div style={{ maxHeight: "52vh", overflowY: "auto" }}>
-                <table className="tbl">
-                  <tbody>
+        {flagged.length > 0 && (
+          <div className="grid" style={{ gridTemplateColumns: "380px minmax(0, 1fr)" }}>
+            <Reveal delay={0.06}>
+              <Card flush title="Wallets" right={<span className="eyebrow">{num(flagged.length)} flagged</span>}>
+                <div style={{ maxHeight: 520, overflowY: "auto", marginTop: 12 }}>
+                  <table className="tbl"><tbody>
                     {flagged.map((r) => {
                       const c = claimedCountryFrom(r.geo_temporal_reason);
                       const on = r.node_id === sel;
                       return (
                         <tr key={r.node_id} className={`row${on ? " sel" : ""}`} onClick={() => setSel(on ? null : r.node_id)}>
-                          <td>
-                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                              <span className="fg" title={r.node_id}>{short(r.node_id, 30)}</span>
-                              <Tag t="md">{c}</Tag>
-                            </div>
+                          <td style={{ whiteSpace: "normal" }}>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="mono" style={{ color: "var(--bone)" }} title={r.node_id}>{short(r.node_id, 24)}</span><Tag t="hi">{c}</Tag></div>
                             {/* the detector's sentence, rendered unmodified */}
-                            <div className="note" style={{ whiteSpace: "normal" }}>{r.geo_temporal_reason}</div>
+                            <div className="note" style={{ marginTop: 6 }}>{r.geo_temporal_reason}</div>
                           </td>
                         </tr>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            </Panel>
-          </Reveal>
-          <Reveal delay={0.12} style={{ flex: 1 }}>
-            <Panel title="claimed locations" right={`${points.length} plotted`}>
-              <Suspense fallback={<div className="empty" style={{ height: 300 }}>loading map…</div>}>
-                <GeoTemporalMap points={points} selectedId={sel} onSelect={setSel} />
-              </Suspense>
-              <div className="note" style={{ marginTop: 6 }}>
-                Country-level resolution only. Each dot sits at the centroid of the country the wallet <em>claims</em>, jittered so overlapping wallets stay distinguishable — it is not a city-level or precise position, and not a real-world identity claim.
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-                {tally.map(([c, n]) => <Tag key={c} t="md">claims {c} · {n}</Tag>)}
-              </div>
-            </Panel>
-          </Reveal>
-        </div>
-      )}
-
-      <div className="grid g2">
-        <Reveal delay={0.16}><GeoGroup title="by country" rows={data.by_country} k="country" /></Reveal>
-        <Reveal delay={0.2}><GeoGroup title="by asn" rows={data.by_asn} k="asn" /></Reveal>
-      </div>
+                  </tbody></table>
+                </div>
+              </Card>
+            </Reveal>
+            <Reveal delay={0.09}>
+              <Card panel>
+                <Suspense fallback={<div className="empty" style={{ height: 300, padding: 24 }}>Loading map…</div>}>
+                  <GeoTemporalMap points={points} selectedId={sel} onSelect={setSel} />
+                </Suspense>
+                <div className="note" style={{ padding: "14px 20px", borderTop: "1px solid var(--lift)", maxWidth: "none" }}>
+                  Country-level resolution only. Each dot sits at the centroid of the country the wallet <em>claims</em>, jittered so overlapping wallets stay distinguishable — it is not a city-level or precise position, and not a real-world identity claim.
+                </div>
+              </Card>
+            </Reveal>
+          </div>
+        )}
+      </Section>
     </>
   );
 }

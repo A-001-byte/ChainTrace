@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Topbar, Nav, Statusbar, SECTIONS } from "./components/shell/Shell";
+import { TopNav, FootBar } from "./components/shell/Shell";
+import { SECTIONS } from "./lib/sections";
 import EntityDrawer from "./components/EntityDrawer";
 import OverviewPage from "./components/pages/OverviewPage";
 import AlertsPage from "./components/pages/AlertsPage";
@@ -12,15 +13,12 @@ import SystemPage from "./components/pages/SystemPage";
 
 export default function App() {
   const [active, setActive] = useState("overview");
-  // Selected entity drives graph focus and the Kick Down Doors target; the drawer is
-  // tracked separately so closing it doesn't discard that selection.
-  const [selected, setSelected] = useState(null);
-  const [drawer, setDrawer] = useState(null);
+  const [selected, setSelected] = useState(null); // graph focus / KDD target
+  const [drawer, setDrawer] = useState(null);     // open record, tracked separately
 
   const open = (id) => { setSelected(id); setDrawer(id); };
   const toGraph = (id) => { setSelected(id); setDrawer(null); setActive("graph"); };
 
-  // F1–F8 jump between sections; Esc closes the drawer. Console muscle memory.
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") { setDrawer(null); return; }
@@ -33,9 +31,8 @@ export default function App() {
 
   return (
     <div className="shell">
-      <Topbar onLookup={open} />
-      <Nav active={active} onSelect={setActive} />
-      <main className="main">
+      <TopNav active={active} onSelect={setActive} onLookup={open} />
+      <main className="page">
         {active === "overview" && <OverviewPage onOpen={open} onNav={setActive} />}
         {active === "alerts" && <AlertsPage onOpen={open} selected={selected} />}
         {active === "graph" && <GraphPage focus={selected} onOpen={open} />}
@@ -45,7 +42,7 @@ export default function App() {
         {active === "pattern" && <PatternPage />}
         {active === "system" && <SystemPage />}
       </main>
-      <Statusbar />
+      <FootBar />
       <EntityDrawer nodeId={drawer} onClose={() => setDrawer(null)} onGraph={toGraph} />
     </div>
   );

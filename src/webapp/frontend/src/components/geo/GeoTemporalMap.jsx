@@ -4,11 +4,12 @@ import { feature } from "topojson-client";
 import landTopo from "world-atlas/land-110m.json";
 import { centroidFor, jitterFor } from "../../lib/countryCentroids";
 import { activityBandFrom, bandLonRange } from "../../lib/regionAnchors";
-import { motionTokens } from "../../lib/motionTokens";
+import { CHART_COLORS as C } from "../../lib/chartColors";
 
 const W = 1000, H = 500;
 const K_MIN = 1, K_MAX = 9;
-const AMBER = "#ffb347", CYAN = "#00e5ff";
+const MONO = "Geist Mono Variable, ui-monospace, monospace";
+const LINE = "rgba(238,238,238,0.05)";
 
 const project = (lon, lat) => [((lon + 180) / 360) * W, ((90 - lat) / 180) * H];
 
@@ -31,13 +32,12 @@ function arcPath([x1, y1], [x2, y2]) {
 }
 
 /**
- * Interactive country-centroid map.
+ * Interactive country-centroid map — flat, no filters.
  *
  * One view state {k, tx, ty} drives EVERYTHING — the group transform, dot radii, stroke
  * widths and font sizes are all computed from the same tweened k, so nothing pops while a
- * focus animation is in flight (the previous version divided sizes by the *target* scale
- * instantly, which is what looked glitchy). Wheel = zoom about cursor, drag = pan,
- * selecting a wallet animates a focus, double-click resets.
+ * focus animation is in flight. Wheel = zoom about cursor, drag = pan, selecting a wallet
+ * animates a focus, double-click resets.
  */
 export default function GeoTemporalMap({ points, selectedId, onSelect }) {
   const rm = useReducedMotion();
@@ -82,7 +82,7 @@ export default function GeoTemporalMap({ points, selectedId, onSelect }) {
     // Always tween (duration 0 under reduced motion) so the state update happens in the
     // animation callback rather than synchronously inside an effect body.
     anim.current = animate(0, 1, {
-      duration: rm ? 0 : motionTokens.duration.slow, ease: motionTokens.easing.smooth,
+      duration: rm ? 0 : 0.2, ease: [0.4, 0, 0.2, 1],
       onUpdate: (t) => setView({ k: from.k + (target.k - from.k) * t, tx: from.tx + (target.tx - from.tx) * t, ty: from.ty + (target.ty - from.ty) * t }),
     });
   };
@@ -121,6 +121,7 @@ export default function GeoTemporalMap({ points, selectedId, onSelect }) {
   };
   const onUp = () => { drag.current = null; setDragging(false); };
   const reset = () => { onSelect?.(null); goTo({ k: 1, tx: 0, ty: 0 }); };
+  const zoomBy = (s) => { const v = viewRef.current; const k = Math.max(K_MIN, Math.min(K_MAX, v.k * s)); const r = k / v.k; goTo({ k, tx: W / 2 - (W / 2 - v.tx) * r, ty: H / 2 - (H / 2 - v.ty) * r }); };
   // non-passive listener so preventDefault can stop the page from scrolling under the map
   useEffect(() => {
     const el = svgRef.current;
@@ -135,58 +136,48 @@ export default function GeoTemporalMap({ points, selectedId, onSelect }) {
   const bandX = band ? bandLonRange(band.offset).map((lon) => ((lon + 180) / 360) * W) : null;
 
   return (
-    <div style={{ position: "relative", width: "100%", background: "var(--bg)", border: "1px solid var(--line)", overflow: "hidden" }}>
+    <div style={{ position: "relative", width: "100%", background: "#101010", overflow: "hidden" }}>
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="World map of wallets by claimed country"
            style={{ width: "100%", height: "auto", display: "block", cursor: dragging ? "grabbing" : "grab", userSelect: "none" }}
            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onDoubleClick={reset}>
-        <defs>
-          <filter id="gt-glow" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="2.2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <filter id="gt-glow-lg" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <radialGradient id="gt-vig" cx="50%" cy="50%" r="70%"><stop offset="60%" stopColor="#000" stopOpacity="0" /><stop offset="100%" stopColor="#000" stopOpacity="0.55" /></radialGradient>
-        </defs>
-        <rect width={W} height={H} fill="#04070c" />
-
+        <rect width={W} height={H} fill="#101010" />
         <g transform={`translate(${tx},${ty}) scale(${k})`}>
           {/* graticule */}
           {Array.from({ length: 11 }, (_, i) => (i + 1) * 30 - 180).map((lon) => (
-            <line key={`m${lon}`} x1={((lon + 180) / 360) * W} x2={((lon + 180) / 360) * W} y1={0} y2={H} stroke="rgba(0,229,255,0.07)" strokeWidth={inv} />
+            <line key={`m${lon}`} x1={((lon + 180) / 360) * W} x2={((lon + 180) / 360) * W} y1={0} y2={H} stroke={LINE} strokeWidth={inv} />
           ))}
           {[-60, -30, 0, 30, 60].map((lat) => (
-            <line key={`p${lat}`} x1={0} x2={W} y1={((90 - lat) / 180) * H} y2={((90 - lat) / 180) * H} stroke={lat === 0 ? "rgba(0,229,255,0.16)" : "rgba(0,229,255,0.07)"} strokeWidth={inv} />
+            <line key={`p${lat}`} x1={0} x2={W} y1={((90 - lat) / 180) * H} y2={((90 - lat) / 180) * H} stroke={lat === 0 ? "rgba(238,238,238,0.1)" : LINE} strokeWidth={inv} />
           ))}
           {/* the timezone band the detector says the activity fits */}
           {bandX && (
             <g>
-              <rect x={bandX[0]} y={0} width={bandX[1] - bandX[0]} height={H} fill="rgba(255,179,71,0.07)" stroke="rgba(255,179,71,0.35)" strokeWidth={inv} strokeDasharray={`${4 * inv} ${4 * inv}`} />
-              <text x={(bandX[0] + bandX[1]) / 2} y={14 * inv} textAnchor="middle" fill={AMBER} fontSize={10 * inv} fontFamily="Fira Code, monospace" letterSpacing={0.1 * inv}>
+              <rect x={bandX[0]} y={0} width={bandX[1] - bandX[0]} height={H} fill="rgba(238,96,24,0.06)" stroke={C.ORANGE} strokeOpacity={0.4} strokeWidth={inv} strokeDasharray={`${4 * inv} ${4 * inv}`} />
+              <text x={(bandX[0] + bandX[1]) / 2} y={16 * inv} textAnchor="middle" fill={C.ORANGE} fontSize={10 * inv} fontFamily={MONO}>
                 UTC{band.offset >= 0 ? "+" : ""}{band.offset} · {band.name.toUpperCase()}
               </text>
             </g>
           )}
-          <path d={landPath} fill="rgba(0,229,255,0.055)" stroke="rgba(0,229,255,0.28)" strokeWidth={0.7 * inv} />
+          <path d={landPath} fill={C.LIFT} stroke={C.STROKE} strokeWidth={0.7 * inv} />
 
           {/* arcs: claimed country -> activity band */}
           {plotted.map((p) => p.bandXY && (
             <path key={`a${p.nodeId}`} d={arcPath([p.x, p.y], p.bandXY)} fill="none"
-                  stroke={AMBER} strokeWidth={(selected?.nodeId === p.nodeId ? 1.6 : 0.6) * inv}
-                  strokeOpacity={selected ? (selected.nodeId === p.nodeId ? 0.95 : 0.12) : 0.45}
-                  strokeDasharray={`${3 * inv} ${3 * inv}`} filter={selected?.nodeId === p.nodeId ? "url(#gt-glow)" : undefined} />
+                  stroke={C.ORANGE} strokeWidth={(selected?.nodeId === p.nodeId ? 1.4 : 0.6) * inv}
+                  strokeOpacity={selected ? (selected.nodeId === p.nodeId ? 0.95 : 0.12) : 0.4}
+                  strokeDasharray={`${3 * inv} ${3 * inv}`} />
           ))}
           {selected?.bandXY && (
-            <g filter="url(#gt-glow)">
-              <circle cx={selected.bandXY[0]} cy={selected.bandXY[1]} r={3.2 * inv} fill="none" stroke={AMBER} strokeWidth={1 * inv} />
-              <circle cx={selected.bandXY[0]} cy={selected.bandXY[1]} r={1.2 * inv} fill={AMBER} />
+            <g>
+              <circle cx={selected.bandXY[0]} cy={selected.bandXY[1]} r={3.2 * inv} fill="none" stroke={C.ORANGE} strokeWidth={1 * inv} />
+              <circle cx={selected.bandXY[0]} cy={selected.bandXY[1]} r={1.2 * inv} fill={C.ORANGE} />
             </g>
           )}
 
           {/* per-country labels */}
           {byCountry.map((c) => (
-            <text key={c.code} x={c.x + 9 * inv} y={c.y - 8 * inv} fill={CYAN} fontSize={9.5 * inv} fontFamily="Fira Code, monospace" opacity={selected && selected.claimedCountry !== c.code ? 0.35 : 0.9} style={{ pointerEvents: "none" }}>
-              {c.code}<tspan fill="#5e7a92"> ×{c.n}</tspan>
+            <text key={c.code} x={c.x + 9 * inv} y={c.y - 8 * inv} fill={C.BONE} fontSize={9.5 * inv} fontFamily={MONO} opacity={selected && selected.claimedCountry !== c.code ? 0.35 : 0.9} style={{ pointerEvents: "none" }}>
+              {c.code}<tspan fill={C.GRANITE}> ×{c.n}</tspan>
             </text>
           ))}
 
@@ -198,27 +189,26 @@ export default function GeoTemporalMap({ points, selectedId, onSelect }) {
               <g key={p.nodeId} opacity={dim ? 0.3 : 1} style={{ cursor: "pointer" }}
                  onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSelect?.(on ? null : p.nodeId); }}>
                 {on && !rm && (
-                  <circle key={`pulse-${selectedId}`} cx={p.x} cy={p.y} r={4 * inv} fill="none" stroke={AMBER} strokeWidth={1.2 * inv}>
-                    <animate attributeName="r" from={4 * inv} to={16 * inv} dur="0.9s" fill="freeze" />
-                    <animate attributeName="opacity" from="0.9" to="0" dur="0.9s" fill="freeze" />
+                  <circle key={`pulse-${selectedId}`} cx={p.x} cy={p.y} r={4 * inv} fill="none" stroke={C.ORANGE} strokeWidth={1 * inv}>
+                    <animate attributeName="r" from={4 * inv} to={14 * inv} dur="0.6s" fill="freeze" />
+                    <animate attributeName="opacity" from="0.8" to="0" dur="0.6s" fill="freeze" />
                   </circle>
                 )}
-                <circle cx={p.x} cy={p.y} r={(on ? 5.5 : 3.6) * inv} fill={on ? AMBER : "rgba(255,179,71,0.75)"} stroke={AMBER} strokeWidth={(on ? 1.4 : 0.8) * inv} filter={on ? "url(#gt-glow-lg)" : "url(#gt-glow)"} />
+                <circle cx={p.x} cy={p.y} r={(on ? 5 : 3.4) * inv} fill={C.ORANGE} fillOpacity={on ? 1 : 0.85} stroke="#101010" strokeWidth={0.8 * inv} />
                 <title>{`${p.nodeId}\nclaims ${p.claimedCountry} (${p.countryName})\n${p.reason ?? ""}`}</title>
               </g>
             );
           })}
         </g>
-        <rect width={W} height={H} fill="url(#gt-vig)" style={{ pointerEvents: "none" }} />
       </svg>
 
-      <div style={{ position: "absolute", top: 6, right: 6, display: "flex", gap: 4 }}>
-        <button className="btn" onClick={() => { const v = viewRef.current; const s = 1.5, k = Math.min(K_MAX, v.k * s); const r = k / v.k; goTo({ k, tx: W / 2 - (W / 2 - v.tx) * r, ty: H / 2 - (H / 2 - v.ty) * r }); }} aria-label="zoom in">+</button>
-        <button className="btn" onClick={() => { const v = viewRef.current; const k = Math.max(K_MIN, v.k / 1.5); const r = k / v.k; goTo({ k, tx: W / 2 - (W / 2 - v.tx) * r, ty: H / 2 - (H / 2 - v.ty) * r }); }} aria-label="zoom out">−</button>
-        <button className="btn" onClick={reset}>reset</button>
+      <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 6 }}>
+        <button className="btn sm" onClick={() => zoomBy(1.5)} aria-label="zoom in">+</button>
+        <button className="btn sm" onClick={() => zoomBy(1 / 1.5)} aria-label="zoom out">−</button>
+        <button className="btn sm" onClick={reset}>Reset</button>
       </div>
-      <div className="note" style={{ position: "absolute", left: 8, bottom: 6, pointerEvents: "none" }}>
-        <span style={{ color: AMBER }}>●</span> claimed country &nbsp;<span style={{ color: AMBER }}>- - -</span> arc to the timezone band the activity fits &nbsp;· wheel zoom · drag pan · dbl-click reset
+      <div className="eyebrow" style={{ position: "absolute", left: 16, bottom: 12, pointerEvents: "none", color: "var(--granite)" }}>
+        <span style={{ color: C.ORANGE }}>●</span> claimed country &nbsp;<span style={{ color: C.ORANGE }}>- - -</span> arc to activity band &nbsp;· wheel zoom · drag pan · dbl-click reset
       </div>
     </div>
   );

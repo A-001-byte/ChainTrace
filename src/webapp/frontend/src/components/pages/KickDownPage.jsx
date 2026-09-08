@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
 import { useAlerts } from "../../hooks/useAlerts";
 import { useKickDownDoors } from "../../hooks/useKickDownDoors";
 import { clusterColor } from "../../lib/clusterColors";
-import { motionTokens } from "../../lib/motionTokens";
-import { Panel, RiskTag, Tag, Empty, Reveal, short } from "../ui";
+import { CHART_COLORS as C } from "../../lib/chartColors";
+import { short, num, f3 } from "../../lib/format";
+import { Card, Tile, Tiles, Section, RiskTag, Tag, Empty, Reveal } from "../ui";
+import { HBars, Donut } from "../charts";
 
 export default function KickDownPage({ selected, onSelect }) {
-  const rm = useReducedMotion();
   const { data: a, loading: al } = useAlerts();
   const [q, setQ] = useState("");
   const rows = useMemo(() => (Array.isArray(a?.rows) ? a.rows : []), [a]);
@@ -18,70 +18,84 @@ export default function KickDownPage({ selected, onSelect }) {
     return (n ? rows.filter((r) => String(r.node_id).toLowerCase().includes(n)) : rows).slice(0, 60);
   }, [rows, q]);
   const trow = rows.find((r) => r.node_id === target);
+  const res = data?.results ?? [];
+  const bridges = res.filter((n) => n.is_articulation_point).length;
+  const impact = res.map((n) => ({ k: short(n.node_id, 16), n: n.impact_score, ap: n.is_articulation_point }));
+  const btw = res.map((n) => ({ k: short(n.node_id, 16), n: n.betweenness }));
 
   return (
-    <div className="cols">
-      <Reveal style={{ flex: "0 0 340px" }}>
-        <Panel title="select entity" right={<input className="inp" placeholder="filter" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 120 }} />} flush>
-          <div style={{ maxHeight: "72vh", overflowY: "auto" }}>
-            {al ? <Empty>loading…</Empty> : (
-              <table className="tbl">
-                <tbody>
+    <Section eyebrow="Kick Down Doors" right={<Tag>LOCAL DISRUPTION ANALYSIS</Tag>}>
+      <div className="grid" style={{ gridTemplateColumns: "320px minmax(0, 1fr)" }}>
+        <Reveal>
+          <Card flush title="Entity" right={<input className="inp" placeholder="Filter" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 120, height: 28 }} />}>
+            <div style={{ maxHeight: "70vh", overflowY: "auto", marginTop: 12 }}>
+              {al ? <Empty>Loading…</Empty> : (
+                <table className="tbl"><tbody>
                   {matches.map((r) => (
                     <tr key={r.node_id} className={`row${r.node_id === target ? " sel" : ""}`} onClick={() => onSelect?.(r.node_id)}>
-                      <td className="fg" title={r.node_id}>{short(r.node_id, 28)}</td>
-                      <td style={{ color: clusterColor(r.cluster_id) }}>{r.cluster_id ?? "—"}</td>
+                      <td className="fg mono" title={r.node_id}>{short(r.node_id, 20)}</td>
+                      <td className="mono" style={{ color: clusterColor(r.cluster_id) }}>{r.cluster_id ?? "—"}</td>
                       <td className="r"><RiskTag score={r.risk_score} /></td>
                     </tr>
                   ))}
-                  {matches.length === 0 && <tr><td className="mute">no match</td></tr>}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </Panel>
-      </Reveal>
+                  {matches.length === 0 && <tr><td className="muted">No match</td></tr>}
+                </tbody></table>
+              )}
+            </div>
+          </Card>
+        </Reveal>
 
-      <Reveal delay={0.05} style={{ flex: 1 }}>
-        <Panel title="kick down doors" right={target ? <Tag t="md">LOCAL DISRUPTION ANALYSIS</Tag> : null} flush>
-          {!target ? <Empty>select an entity</Empty> : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
+          {!target ? <Empty>Select an entity</Empty> : (
             <>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderBottom: "1px solid var(--rule)", fontSize: "var(--fs-sm)" }}>
-                <span className="acc" style={{ overflowWrap: "anywhere" }}>{target}</span>
-                {trow && typeof trow.risk_score === "number" && <RiskTag score={trow.risk_score} />}
-              </div>
-              <div className="prose" style={{ padding: "6px 8px", fontSize: "var(--fs-sm)" }}>
-                Which nodes in this entity's own neighbourhood carry the money-flow — so an intervention can be aimed at the smallest set of points that actually breaks the path.
-              </div>
-              {loading && <Empty>analyzing local neighborhood…</Empty>}
-              {error && <div className="note hi" style={{ padding: 8 }}>Kick Down Doors analysis unavailable: {error}</div>}
-              {data && (data.results.length === 0 ? (
-                <Empty>No structural articulation points found in this entity's immediate neighborhood.</Empty>
-              ) : (
+              <Reveal delay={0.03}>
+                <Card light panel>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "20px 24px 0" }}>
+                    <span className="mono" style={{ fontSize: 12, overflowWrap: "anywhere" }}>{target}</span>
+                    {trow && typeof trow.risk_score === "number" && <RiskTag score={trow.risk_score} />}
+                  </div>
+                  <div style={{ padding: 24 }}>
+                    <Tiles>
+                      <Tile k="Candidates" v={data ? num(res.length) : "…"} s="neighbourhood" />
+                      <Tile k="Bridges" v={data ? num(bridges) : "…"} tone={bridges ? "orange" : undefined} s="articulation points" />
+                      <Tile k="Impact" v={res[0] ? f3(res[0].impact_score) : "—"} s="top target" />
+                      <Tile k="Betweenness" v={res[0] ? res[0].betweenness.toFixed(4) : "—"} s="top target" />
+                    </Tiles>
+                  </div>
+                </Card>
+              </Reveal>
+              {loading && <Empty>Analyzing local neighborhood…</Empty>}
+              {error && <Card><div className="note orange">Kick Down Doors analysis unavailable: {error}</div></Card>}
+              {data && (res.length === 0 ? <Empty>No structural articulation points found in this entity's immediate neighborhood.</Empty> : (
                 <>
-                  <table className="tbl">
-                    <thead><tr><th>node</th><th>type</th><th className="r">impact</th><th className="r">betweenness</th><th>articulation</th></tr></thead>
-                    <tbody>
-                      {data.results.map((n, i) => (
-                        <motion.tr key={n.node_id}
-                          initial={{ opacity: 0, y: rm ? 0 : motionTokens.distance.sm }} animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: rm ? motionTokens.duration.fast : motionTokens.duration.normal, ease: motionTokens.easing.smooth, delay: rm ? 0 : i * 0.04 }}>
-                          <td className="fg" style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{n.node_id}</td>
-                          <td>{n.node_type}</td>
-                          <td className="r fg">{n.impact_score.toFixed(3)}</td>
-                          <td className="r">{n.betweenness.toFixed(4)}</td>
-                          <td>{n.is_articulation_point ? <span className="md">YES</span> : <span className="mute">no</span>}</td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="note" style={{ padding: 8, borderTop: "1px solid var(--rule)" }}><span className="mute">top target rationale · </span>{data.results[0]?.reason}</div>
+                  <div className="grid g3">
+                    <Reveal delay={0.06} className="span2"><Card title="Impact" right="orange = bridge"><HBars data={impact} name="impact" colorBy={(e) => (e.ap ? C.ORANGE : C.STONE)} fmt={(v) => Number(v).toFixed(3)} height={Math.max(160, res.length * 22)} /></Card></Reveal>
+                    <Reveal delay={0.09}><Card title="Bridges" right="share"><Donut rows={res.map((n) => ({ b: n.is_articulation_point ? "bridge" : "not bridge" }))} field="b" colors={[C.ORANGE, C.GRAPHITE]} /></Card></Reveal>
+                  </div>
+                  <div className="grid g3">
+                    <Reveal delay={0.12} className="span2">
+                      <Card flush title="Targets">
+                        <table className="tbl" style={{ marginTop: 12 }}>
+                          <thead><tr><th>Node</th><th>Type</th><th className="r">Impact</th><th className="r">Betweenness</th><th>Bridge</th></tr></thead>
+                          <tbody>{res.map((n) => (
+                            <tr key={n.node_id}>
+                              <td className="fg mono" style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{n.node_id}</td><td>{n.node_type}</td>
+                              <td className="r fg mono">{n.impact_score.toFixed(3)}</td><td className="r mono">{n.betweenness.toFixed(4)}</td>
+                              <td>{n.is_articulation_point ? <Tag t="hi">yes</Tag> : <span className="muted">no</span>}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </Card>
+                    </Reveal>
+                    <Reveal delay={0.15}><Card title="Betweenness"><HBars data={btw} name="betweenness" color={C.STONE} fmt={(v) => Number(v).toFixed(4)} height={Math.max(160, res.length * 22)} /></Card></Reveal>
+                  </div>
+                  <Reveal delay={0.18}><Card title="Rationale" right="top target"><div className="note">{res[0]?.reason}</div></Card></Reveal>
                 </>
               ))}
             </>
           )}
-        </Panel>
-      </Reveal>
-    </div>
+        </div>
+      </div>
+    </Section>
   );
 }

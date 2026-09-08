@@ -1,8 +1,11 @@
-/** Chart palette. Semantic, matching the CSS tokens: cyan = structure/interactive,
- *  red/amber/green = risk tiers, amber = geo-temporal & fragility signal,
- *  violet/teal = categorical (intent). Kept out of charts.jsx so that file only
- *  exports components (Fast Refresh requirement). */
+/** Factory palette for data. Orange and green are the only chromatic values and mean
+ *  something: orange = elevated / signal, green = positive / low. Everything else is a
+ *  neutral ramp. Kept out of charts.jsx so that file only exports components. */
 export const CHART_COLORS = {
-  CYAN: "#00e5ff", BLUE: "#3d8bff", AMBER: "#ffb347", RED: "#ff3b5c", GREEN: "#3ddc84",
-  VIOLET: "#a78bfa", TEAL: "#2dd4bf", MUTE: "#5e7a92",
+  ORANGE: "#ee6018", GREEN: "#a0ca92",
+  BONE: "#eeeeee", STONE: "#b8b3b0", GRANITE: "#8a8380", GRAPHITE: "#4d4947", STROKE: "#3d3a39", LIFT: "#1d1a18",
+  NEUTRALS: ["#eeeeee", "#b8b3b0", "#8a8380", "#4d4947", "#3d3a39"],
 };
+
+/** Risk score -> data colour. High = orange, medium = stone, low = green. */
+export const riskColor = (r) => (typeof r !== "number" ? "#4d4947" : r >= 0.6 ? "#ee6018" : r >= 0.4 ? "#b8b3b0" : "#a0ca92");

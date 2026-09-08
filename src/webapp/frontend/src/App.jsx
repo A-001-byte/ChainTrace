@@ -1,63 +1,52 @@
-import { useState } from "react";
-import TopBar from "./components/layout/TopBar";
-import Sidebar from "./components/layout/Sidebar";
-import Overview from "./components/overview/Overview";
-import AlertsPage from "./components/alerts/AlertsPage";
-import EntityDetailDrawer from "./components/alerts/EntityDetailDrawer";
-import GraphPanel from "./components/graph/GraphPanel";
-import GeoPage from "./components/geo/GeoPage";
-import PatternPage from "./components/pattern/PatternPage";
-import KickDownDoorsPage from "./components/kickdown/KickDownDoorsPage";
-import ProvenancePage from "./components/provenance/ProvenancePage";
-import SystemPage from "./components/system/SystemPage";
+import { useEffect, useState } from "react";
+import { Topbar, Nav, Statusbar, SECTIONS } from "./components/shell/Shell";
+import EntityDrawer from "./components/EntityDrawer";
+import OverviewPage from "./components/pages/OverviewPage";
+import AlertsPage from "./components/pages/AlertsPage";
+import GraphPage from "./components/pages/GraphPage";
+import KickDownPage from "./components/pages/KickDownPage";
+import ProvenancePage from "./components/pages/ProvenancePage";
+import GeoPage from "./components/pages/GeoPage";
+import PatternPage from "./components/pages/PatternPage";
+import SystemPage from "./components/pages/SystemPage";
 
 export default function App() {
   const [active, setActive] = useState("overview");
-  // The entity whose row/node is selected -- drives graph focus and the Kick Down Doors page.
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
-  // The entity whose drawer is open. Kept separate from selectedNodeId so closing the
-  // drawer doesn't also blow away graph focus / the Kick Down Doors target.
-  const [drawerNodeId, setDrawerNodeId] = useState(null);
+  // Selected entity drives graph focus and the Kick Down Doors target; the drawer is
+  // tracked separately so closing it doesn't discard that selection.
+  const [selected, setSelected] = useState(null);
+  const [drawer, setDrawer] = useState(null);
 
-  function openEntity(nodeId) {
-    setSelectedNodeId(nodeId);
-    setDrawerNodeId(nodeId);
-  }
+  const open = (id) => { setSelected(id); setDrawer(id); };
+  const toGraph = (id) => { setSelected(id); setDrawer(null); setActive("graph"); };
+
+  // F1–F8 jump between sections; Esc closes the drawer. Console muscle memory.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") { setDrawer(null); return; }
+      const s = SECTIONS.find((x) => x.key === e.key);
+      if (s) { e.preventDefault(); setActive(s.id); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
-    <div className="app-shell">
-      {/* Search lives in the header so an analyst can pull up any entity from any page.
-          Read-only lookup over existing pipeline output -- not an ingestion control. */}
-      <TopBar onLookupEntity={openEntity} />
-      <Sidebar active={active} onSelect={setActive} />
-
-      <main className="main-content">
-        {active === "overview" && (
-          <Overview onSelectEntity={openEntity} onNavigate={setActive} />
-        )}
-
-        {active === "alerts" && <AlertsPage onSelectNode={openEntity} />}
-
-        {active === "graph" && (
-          <GraphPanel focusNodeId={selectedNodeId} onSelectNode={openEntity} />
-        )}
-
-        {active === "kickdown" && (
-          <KickDownDoorsPage selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
-        )}
-
+    <div className="shell">
+      <Topbar onLookup={open} />
+      <Nav active={active} onSelect={setActive} />
+      <main className="main">
+        {active === "overview" && <OverviewPage onOpen={open} onNav={setActive} />}
+        {active === "alerts" && <AlertsPage onOpen={open} selected={selected} />}
+        {active === "graph" && <GraphPage focus={selected} onOpen={open} />}
+        {active === "kickdown" && <KickDownPage selected={selected} onSelect={setSelected} />}
         {active === "provenance" && <ProvenancePage />}
-
         {active === "geo" && <GeoPage />}
-
         {active === "pattern" && <PatternPage />}
-
         {active === "system" && <SystemPage />}
       </main>
-
-      {/* Hoisted to app level so the drawer opens from the Overview preview, the alert
-          tables, a graph node click, or the header search -- one drawer, one code path. */}
-      <EntityDetailDrawer nodeId={drawerNodeId} onClose={() => setDrawerNodeId(null)} />
+      <Statusbar />
+      <EntityDrawer nodeId={drawer} onClose={() => setDrawer(null)} onGraph={toGraph} />
     </div>
   );
 }

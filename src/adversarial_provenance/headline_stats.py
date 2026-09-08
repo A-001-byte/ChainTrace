@@ -147,6 +147,34 @@ def compute() -> dict:
         },
     }
 
+    # HEADLINE #2 — fragility distribution across real clusters (Module B).
+    cfi_path = config.OUTPUT_DIR / "cfi.parquet"
+    if cfi_path.exists():
+        cfi = pd.read_parquet(cfi_path)
+        scored = cfi[cfi.cfi_status == "OK"]
+        stats["fragility"] = {
+            "n_clusters_total": int(len(cfi)),
+            "n_clusters_scored": int(len(scored)),
+            "n_clusters_trivial": int((cfi.cfi_status == "TRIVIAL").sum()),
+            "n_clusters_skipped_oversize": int((cfi.cfi_status == "SKIPPED_OVERSIZE").sum()),
+            "pct_cfi_gt_30": float((scored.cfi > 0.30).mean()) if len(scored) else 0.0,
+            "n_cfi_gt_30": int((scored.cfi > 0.30).sum()),
+            "cfi_median": float(scored.cfi.median()) if len(scored) else 0.0,
+            "cfi_p90": float(scored.cfi.quantile(0.90)) if len(scored) else 0.0,
+            "n_fully_witnessed": int((scored.cfi == 0).sum()),
+            "n_entirely_fragile": int((scored.cfi >= 1.0).sum()),
+            "largest_cluster_addresses": int(cfi.n_addr.max()),
+        }
+        if "queue" in taint.columns:
+            stats["fragility"]["n_contested_evidence"] = int(
+                (taint.queue == "CONTESTED_EVIDENCE").sum()
+            )
+            stats["fragility"]["note"] = (
+                "CONTESTED_EVIDENCE alerts are ROUTED to a separate queue, never "
+                "suppressed: the alert stays, with the width of its evidence interval "
+                "attached."
+            )
+
     logger.info("Measuring held-out seed recall...")
     stats["heldout_seed_recall"] = _heldout_seed_recall()
     logger.info("Measuring exposure-mode sensitivity...")

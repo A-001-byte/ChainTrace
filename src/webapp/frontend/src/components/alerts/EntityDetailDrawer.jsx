@@ -284,6 +284,53 @@ export default function EntityDetailDrawer({ nodeId, onClose }) {
                           {aplData.n_taint_links} tainted links
                         </span>
                       </div>
+                      {aplData.module_b_available && aplData.risk_baseline !== null && (
+                        <div style={{ marginTop: "var(--spacing-16)", paddingTop: "var(--spacing-12)", borderTop: "1px solid var(--color-graphite)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--spacing-8)", flexWrap: "wrap", gap: "var(--spacing-8)" }}>
+                            <span className="eyebrow">Evidence interval</span>
+                            {aplData.queue === "CONTESTED_EVIDENCE" && (
+                              <span className="badge mono" style={{
+                                color: "var(--signal)", background: "var(--signal-tint)",
+                                boxShadow: "var(--signal-line) 0px 0px 0px 1px inset",
+                              }}>
+                                CONTESTED EVIDENCE
+                              </span>
+                            )}
+                          </div>
+                          <div className="mono" style={{ fontSize: "var(--text-body-lg)", color: "var(--color-bone)", fontWeight: "var(--weight-medium)" }}>
+                            {aplData.risk_cwt_ablated.toFixed(2)} &ndash; {aplData.risk_baseline.toFixed(2)}
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--spacing-8)", marginTop: "var(--spacing-8)" }}>
+                            {[
+                              ["fragile merges removed", aplData.risk_cwt_ablated],
+                              ["custody-weighted", aplData.risk_cwt],
+                              ["industry haircut", aplData.risk_baseline],
+                            ].map(([label, v]) => (
+                              <span key={label} className="badge mono" style={{
+                                color: "var(--color-ash)", background: "rgba(255,255,255,0.02)",
+                                boxShadow: "var(--color-graphite) 0px 0px 0px 1px inset",
+                              }}>
+                                {v === null ? "—" : v.toFixed(3)} &middot; {label}
+                              </span>
+                            ))}
+                          </div>
+                          {aplData.cluster_id !== null ? (
+                            <p style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)", lineHeight: 1.5, marginTop: "var(--spacing-8)" }}>
+                              Co-spend cluster <span className="mono">{aplData.cluster_id}</span> holds{" "}
+                              <span className="mono">{aplData.cluster_size}</span> addresses; fragility{" "}
+                              {aplData.cluster_cfi_status === "OK"
+                                ? <span className="mono">CFI {aplData.cluster_cfi.toFixed(2)}</span>
+                                : <span className="mono">{aplData.cluster_cfi_status === "TRIVIAL" ? "trivial (under 3 addresses)" : "not computed"}</span>}.
+                            </p>
+                          ) : (
+                            <p style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)", lineHeight: 1.5, marginTop: "var(--spacing-8)" }}>
+                              No co-spend cluster: the multi-input heuristic can only cluster addresses
+                              that have spent, and this one never has.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       <p style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)", lineHeight: 1.5, marginTop: "var(--spacing-12)" }}>
                         Agency describes this address's recorded spend authority in the Elliptic++
                         address-transaction structure, not a live UTXO ledger and not a finding about

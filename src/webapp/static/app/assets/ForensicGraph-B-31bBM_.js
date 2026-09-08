@@ -1,4 +1,4 @@
-import{c as e,l as t,r as n,s as r}from"./index-BZ6L6SAA.js";var i=t(e(),1);function a(e,t){t===void 0&&(t={});var n=t.insertAt;if(!(!e||typeof document>`u`)){var r=document.head||document.getElementsByTagName(`head`)[0],i=document.createElement(`style`);i.type=`text/css`,n===`top`&&r.firstChild?r.insertBefore(i,r.firstChild):r.appendChild(i),i.styleSheet?i.styleSheet.cssText=e:i.appendChild(document.createTextNode(e))}}a(`.vis-overlay {
+import{c as e,l as t,r as n,s as r}from"./index-CdVb4zb7.js";var i=t(e(),1);function a(e,t){t===void 0&&(t={});var n=t.insertAt;if(!(!e||typeof document>`u`)){var r=document.head||document.getElementsByTagName(`head`)[0],i=document.createElement(`style`);i.type=`text/css`,n===`top`&&r.firstChild?r.insertBefore(i,r.firstChild):r.appendChild(i),i.styleSheet?i.styleSheet.cssText=e:i.appendChild(document.createTextNode(e))}}a(`.vis-overlay {
   position: absolute;
   top: 0px;
   right: 0px;

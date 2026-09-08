@@ -16,6 +16,7 @@ import pytest
 
 from src.adversarial_provenance import config, flow
 from src.adversarial_provenance.agency import compute_agency
+from src.adversarial_provenance import io as io_module
 from src.adversarial_provenance.io import Edges
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -155,8 +156,11 @@ def test_no_literals_in_view():
     """
     frontend_src = REPO_ROOT / "src" / "webapp" / "frontend" / "src"
     forbidden = [
+        # Module A results
         "12873", "15014", "85.74", "0.8574", "30430",
         "422730", "113159", "792512", "35161",
+        # Module B results
+        "14298", "24266", "146783", "132485", "14885", "0.9285",
     ]
     offenders = []
     for path in frontend_src.rglob("*.jsx"):
@@ -170,7 +174,7 @@ def test_no_literals_in_view():
 def test_no_literals_in_backend_view_layer():
     """Same rule for the Flask endpoints: they must read the artifacts, not embed them."""
     server = (REPO_ROOT / "src" / "webapp" / "server.py").read_text(encoding="utf-8")
-    for bad in ["12873", "15014", "0.8574", "30430", "422730"]:
+    for bad in ["12873", "15014", "0.8574", "30430", "422730", "14298", "24266", "146783"]:
         assert bad not in server, f"hardcoded APL result {bad} found in server.py"
 
 
@@ -212,3 +216,137 @@ def test_manifest_declares_every_estimator():
         assert manifest["estimators"][key]["why"]
     assert manifest["unavailable_components"]
     assert manifest["exposure_mode"] in config.EXPOSURE_MODES
+
+
+# =====================================================================================
+# Module B — Cluster Fragility Index
+# =====================================================================================
+from src.adversarial_provenance import fragility  # noqa: E402
+
+
+@pytest.fixture
+def toy_bipartite_at() -> pd.DataFrame:
+    """A multi-input structure with a known, hand-checkable cluster partition.
+
+        tx0: a0, a1        -> a0,a1,a2 merge into one cluster, held together
+        tx1: a1, a2           ONLY by tx0 and tx1 (each a single witness)
+        tx2: a3, a4        -> a3,a4 a separate cluster
+        a5 : appears alone in tx3 -> singleton
+    """
+    rows = [(0, 0), (1, 0), (1, 1), (2, 1), (3, 2), (4, 2), (5, 3)]
+    at = pd.DataFrame(rows, columns=["ai", "ti"])
+    at["address"] = "addr" + at.ai.astype(str)
+    at["txId"] = at.ti
+    return at
+
+
+def test_bipartite_components_match_unionfind(toy_bipartite_at):
+    """The reformulation is an exact restatement of the industry-standard clustering.
+
+    This is the credibility test: it proves the bipartite connectivity trick is not a
+    convenient approximation of the multi-input heuristic but provably the same partition.
+    The union-find is implemented independently, without networkx.
+    """
+    B = fragility.build_bipartite(toy_bipartite_at)
+    from_graph = fragility.clusters_from_bipartite(B)
+    graph_labels = dict(zip(from_graph.ai, from_graph.cluster_id))
+    uf_labels = fragility.union_find_multi_input(toy_bipartite_at)
+    assert fragility.partitions_equal(graph_labels, uf_labels)
+
+
+def test_fast_cfi_matches_naive_cfi(toy_bipartite_at):
+    """The O(V+E) DFS must agree exactly with the naive remove-and-recount definition.
+
+    The naive version is the definition; the fast one is an optimisation, so any drift
+    between them is a bug in the optimisation.
+    """
+    import networkx as nx
+
+    B = fragility.build_bipartite(toy_bipartite_at)
+    for comp in nx.connected_components(B):
+        sub = B.subgraph(comp)
+        cfi_fast, frag_fast, status_fast = fragility.cluster_fragility_fast(sub)
+        cfi_naive, frag_naive, status_naive = fragility.cluster_fragility(sub)
+        assert status_fast == status_naive
+        if status_fast != "OK":
+            continue
+        assert cfi_fast == pytest.approx(cfi_naive)
+        assert {f["tx_node"] for f in frag_fast} == {f["tx_node"] for f in frag_naive}
+        assert sorted(round(f["merge_load"], 12) for f in frag_fast) == sorted(
+            round(f["merge_load"], 12) for f in frag_naive
+        )
+
+
+def test_cfi_is_bounded_and_articulation_points_are_transactions(toy_bipartite_at):
+    import networkx as nx
+
+    B = fragility.build_bipartite(toy_bipartite_at)
+    for comp in nx.connected_components(B):
+        cfi, frag, status = fragility.cluster_fragility_fast(B.subgraph(comp))
+        if status != "OK":
+            continue
+        assert 0.0 <= cfi <= 1.0
+        # Only TRANSACTION nodes may be reported as merges; an address cut vertex is not
+        # a merge, it is just a shared address.
+        assert all(f["tx_node"].startswith(fragility.TX_PREFIX) for f in frag)
+        # An articulation point is single-witness by construction.
+        assert all(f["n_witnesses"] == 1 for f in frag)
+
+
+def test_trivial_clusters_are_not_scored_as_fragile(toy_bipartite_at):
+    """A 1-2 address cluster is trivially non-fragile and must report TRIVIAL, not 0-as-fact."""
+    import networkx as nx
+
+    B = fragility.build_bipartite(toy_bipartite_at)
+    singleton = [c for c in nx.connected_components(B)
+                 if sum(1 for n in c if n.startswith(fragility.ADDR_PREFIX)) < 3]
+    assert singleton, "fixture must contain a trivially small cluster"
+    for comp in singleton:
+        cfi, frag, status = fragility.cluster_fragility_fast(B.subgraph(comp))
+        assert status == "TRIVIAL" and cfi == 0.0 and frag == []
+
+
+# --- Module B against the real artifacts ----------------------------------------------
+cfi_artifacts = pytest.mark.skipif(
+    not (config.OUTPUT_DIR / "cfi.parquet").exists(),
+    reason="Module B artifacts not built; run python -m src.adversarial_provenance.pipeline_b",
+)
+
+
+@cfi_artifacts
+def test_real_cfi_bounded_and_status_honest():
+    cfi = pd.read_parquet(config.OUTPUT_DIR / "cfi.parquet")
+    scored = cfi[cfi.cfi_status == "OK"]
+    assert len(scored) > 0
+    assert (scored.cfi >= 0).all() and (scored.cfi <= 1).all()
+    # Oversize components must be NaN, never silently 0 -- "not computed" is not "clean".
+    skipped = cfi[cfi.cfi_status == "SKIPPED_OVERSIZE"]
+    assert skipped.cfi.isna().all()
+
+
+@cfi_artifacts
+def test_real_ablated_is_a_true_lower_bound():
+    """risk_cwt_ablated <= risk_cwt <= risk_baseline, so [ablated, baseline] is an interval."""
+    taint = pd.read_parquet(config.TAINT_PARQUET)
+    assert (taint.risk_cwt_ablated <= taint.risk_cwt + 1e-6).all()
+    assert (taint.risk_cwt <= taint.risk_baseline + 1e-6).all()
+
+
+@cfi_artifacts
+def test_real_contested_queue_is_routed_not_emptied():
+    """Fragile alerts must be ROUTED, so the contested queue has to be non-empty to mean
+    anything. An empty queue would mean fragility was quietly suppressed instead."""
+    taint = pd.read_parquet(config.TAINT_PARQUET)
+    assert (taint.queue == "CONTESTED_EVIDENCE").sum() > 0
+    assert set(taint.queue.unique()) <= {"STANDARD", "CONTESTED_EVIDENCE"}
+
+
+@cfi_artifacts
+def test_real_bipartite_components_match_unionfind_on_full_dataset():
+    """The credibility test, run on all 477,117 real AddrTx edges rather than a toy."""
+    edges = io_module.load_edges()
+    B = fragility.build_bipartite(edges.at)
+    from_graph = fragility.clusters_from_bipartite(B)
+    graph_labels = dict(zip(from_graph.ai, from_graph.cluster_id))
+    uf_labels = fragility.union_find_multi_input(edges.at)
+    assert fragility.partitions_equal(graph_labels, uf_labels)

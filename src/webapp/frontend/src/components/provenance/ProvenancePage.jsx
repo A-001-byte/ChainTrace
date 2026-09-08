@@ -160,6 +160,71 @@ export default function ProvenancePage() {
           </div>
         </motion.div>
 
+        {/* --- Module B: cluster fragility --- */}
+        {s.fragility && (
+          <motion.div
+            variants={reveal}
+            transition={{ duration: reduceMotion ? motionTokens.duration.fast : motionTokens.duration.normal, ease: motionTokens.easing.smooth }}
+            className="panel"
+            style={{ padding: "var(--spacing-24)", marginBottom: "var(--spacing-24)" }}
+          >
+            <span className="eyebrow" style={{ display: "block", marginBottom: "var(--spacing-12)" }}>
+              Cluster Fragility — how much of an &ldquo;entity&rdquo; rests on a single unreplicated merge
+            </span>
+            <p style={{ fontSize: "var(--text-caption)", color: "var(--color-fog)", lineHeight: 1.6, maxWidth: "82ch", marginBottom: "var(--spacing-20)" }}>
+              Co-spend clustering asserts that addresses funding one transaction share a wallet. Where
+              a single transaction is the only thing holding two halves of a cluster together, that
+              assertion has one witness and no corroboration. CFI is the share of a cluster that
+              detaches when every such single-witness merge is removed.
+            </p>
+            <div style={{ display: "flex", gap: "var(--spacing-48)", flexWrap: "wrap", marginBottom: "var(--spacing-20)" }}>
+              {[
+                ["Median CFI", s.fragility.cfi_median.toFixed(2)],
+                ["CFI p90", s.fragility.cfi_p90.toFixed(2)],
+                ["Clusters scored", s.fragility.n_clusters_scored.toLocaleString()],
+                ["CFI > 0.30", pct(s.fragility.pct_cfi_gt_30)],
+                ["Fully witnessed (CFI = 0)", s.fragility.n_fully_witnessed.toLocaleString()],
+                ["Entirely fragile (CFI = 1)", s.fragility.n_entirely_fragile.toLocaleString()],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div className="eyebrow">{label}</div>
+                  <div className="mono" style={{
+                    fontSize: "var(--text-subheading)", lineHeight: "var(--leading-subheading)",
+                    letterSpacing: "var(--tracking-subheading)", fontWeight: "var(--weight-medium)",
+                    color: "var(--color-bone)", marginTop: "var(--spacing-4)",
+                  }}>
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--spacing-8)", marginBottom: "var(--spacing-16)" }}>
+              <span className="badge mono" style={{
+                color: "var(--signal)", background: "var(--signal-tint)",
+                boxShadow: "var(--signal-line) 0px 0px 0px 1px inset",
+              }}>
+                {s.fragility.n_contested_evidence?.toLocaleString() ?? 0} routed to CONTESTED_EVIDENCE
+              </span>
+              <span className="badge mono" style={{
+                color: "var(--color-ash)", background: "rgba(255,255,255,0.02)",
+                boxShadow: "var(--color-graphite) 0px 0px 0px 1px inset",
+              }}>
+                {s.fragility.n_clusters_trivial.toLocaleString()} trivial (&lt; 3 addresses)
+              </span>
+              <span className="badge mono" style={{
+                color: "var(--color-ash)", background: "rgba(255,255,255,0.02)",
+                boxShadow: "var(--color-graphite) 0px 0px 0px 1px inset",
+              }}>
+                {s.fragility.n_clusters_skipped_oversize.toLocaleString()} not computed (oversize)
+              </span>
+            </div>
+            <p style={{ fontSize: "var(--text-caption)", color: "var(--color-ash)", lineHeight: 1.6, maxWidth: "82ch" }}>
+              {s.fragility.note} A cluster too large to score reports <span className="mono">not computed</span>,
+              never zero — &ldquo;we did not measure this&rdquo; and &ldquo;this is clean&rdquo; are different claims.
+            </p>
+          </motion.div>
+        )}
+
         {/* --- The trade-off that could look bad. Shown, not buried. --- */}
         {heldoutAtThr && (
           <motion.div

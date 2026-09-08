@@ -84,6 +84,60 @@ _dataset_cache: dict = {}
 _apl_cache: dict = {}
 
 
+def _apl_taint() -> pd.DataFrame | None:
+    """taint_scores.parquet indexed by bare address, or None if not built.
+
+    Carries Module B's columns once pipeline_b has run: risk_cwt_ablated, fragility_span,
+    queue, cfi, cluster_id.
+    """
+    path = apl_config.TAINT_PARQUET
+    if not path.exists():
+        return None
+    key = (str(path), path.stat().st_mtime)
+    if _apl_cache.get("taint_key") != key:
+        _apl_cache["taint_key"] = key
+        _apl_cache["taint"] = pd.read_parquet(path).set_index("address")
+    return _apl_cache["taint"]
+
+
+def _apl_fragility_for(address: str) -> dict:
+    """Module B's per-address fragility interval, or explicit nulls if B hasn't run.
+
+    Returns the evidence INTERVAL a judge can point at: [risk_cwt_ablated, risk_baseline].
+    Every value is read from taint_scores.parquet; nothing is computed here.
+    """
+    taint = _apl_taint()
+    empty = {
+        "module_b_available": False,
+        "risk_baseline": None, "risk_cwt": None, "risk_cwt_ablated": None,
+        "fragility_span": None, "queue": None, "cluster_id": None,
+        "cluster_size": None, "cluster_cfi": None, "cluster_cfi_status": None,
+    }
+    if taint is None or address not in taint.index or "risk_cwt_ablated" not in taint.columns:
+        return empty
+
+    row = taint.loc[address]
+    if isinstance(row, pd.DataFrame):
+        row = row.iloc[0]
+
+    def _num(value):
+        return None if pd.isna(value) else float(value)
+
+    return {
+        "module_b_available": True,
+        "risk_baseline": _num(row.get("risk_baseline")),
+        "risk_cwt": _num(row.get("risk_cwt")),
+        "risk_cwt_ablated": _num(row.get("risk_cwt_ablated")),
+        "fragility_span": _num(row.get("fragility_span")),
+        "queue": None if pd.isna(row.get("queue")) else str(row.get("queue")),
+        "cluster_id": None if pd.isna(row.get("cluster_id")) else int(row.get("cluster_id")),
+        "cluster_size": None if pd.isna(row.get("cluster_size")) else int(row.get("cluster_size")),
+        # cfi is NaN for oversize clusters -- that means NOT COMPUTED, never "clean".
+        "cluster_cfi": _num(row.get("cfi")),
+        "cluster_cfi_status": None if pd.isna(row.get("cfi_status")) else str(row.get("cfi_status")),
+    }
+
+
 def _apl_agency() -> pd.DataFrame | None:
     """agency.parquet indexed by bare address, or None if the layer hasn't been built."""
     path = apl_config.AGENCY_PARQUET
@@ -91,10 +145,8 @@ def _apl_agency() -> pd.DataFrame | None:
         return None
     key = (str(path), path.stat().st_mtime)
     if _apl_cache.get("key") != key:
-        df = pd.read_parquet(path).set_index("address")
-        _apl_cache.clear()
         _apl_cache["key"] = key
-        _apl_cache["agency"] = df
+        _apl_cache["agency"] = pd.read_parquet(path).set_index("address")
     return _apl_cache["agency"]
 
 
@@ -554,9 +606,14 @@ def create_app() -> Flask:
                     "python -m src.adversarial_provenance.headline_stats"
                 ),
             }), 404
+        manifest_b_path = apl_config.OUTPUT_DIR / "_manifest_b.json"
         return jsonify({
             "available": True,
             "manifest": json.loads(manifest_path.read_text(encoding="utf-8")),
+            "manifest_b": (
+                json.loads(manifest_b_path.read_text(encoding="utf-8"))
+                if manifest_b_path.exists() else None
+            ),
             "headline_stats": json.loads(stats_path.read_text(encoding="utf-8")),
         })
 
@@ -600,6 +657,7 @@ def create_app() -> Flask:
             "repeat_counterparty": bool(row.repeat_counterparty),
             "first_contact": bool(row.first_contact),
             "evidence_reason": str(row.evidence_reason),
+            **_apl_fragility_for(address),
         })
 
     @app.get("/api/entity-hours/<path:node_id>")

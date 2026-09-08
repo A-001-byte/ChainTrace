@@ -8,8 +8,7 @@ import { CHART_COLORS as C } from "../../lib/chartColors";
 
 const W = 1000, H = 500;
 const K_MIN = 1, K_MAX = 9;
-const MONO = "Geist Mono Variable, ui-monospace, monospace";
-const LINE = "rgba(238,238,238,0.05)";
+const FONT = "Inter, system-ui, sans-serif";
 
 const project = (lon, lat) => [((lon + 180) / 360) * W, ((90 - lat) / 180) * H];
 
@@ -32,7 +31,7 @@ function arcPath([x1, y1], [x2, y2]) {
 }
 
 /**
- * Interactive country-centroid map — flat, no filters.
+ * Interactive country-centroid map on the light canvas.
  *
  * One view state {k, tx, ty} drives EVERYTHING — the group transform, dot radii, stroke
  * widths and font sizes are all computed from the same tweened k, so nothing pops while a
@@ -82,7 +81,7 @@ export default function GeoTemporalMap({ points, selectedId, onSelect }) {
     // Always tween (duration 0 under reduced motion) so the state update happens in the
     // animation callback rather than synchronously inside an effect body.
     anim.current = animate(0, 1, {
-      duration: rm ? 0 : 0.2, ease: [0.4, 0, 0.2, 1],
+      duration: rm ? 0 : 0.25, ease: [0.4, 0, 0.2, 1],
       onUpdate: (t) => setView({ k: from.k + (target.k - from.k) * t, tx: from.tx + (target.tx - from.tx) * t, ty: from.ty + (target.ty - from.ty) * t }),
     });
   };
@@ -136,48 +135,49 @@ export default function GeoTemporalMap({ points, selectedId, onSelect }) {
   const bandX = band ? bandLonRange(band.offset).map((lon) => ((lon + 180) / 360) * W) : null;
 
   return (
-    <div style={{ position: "relative", width: "100%", background: "#101010", overflow: "hidden" }}>
+    <div style={{ position: "relative", width: "100%", background: "#fff", overflow: "hidden" }}>
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="World map of wallets by claimed country"
            style={{ width: "100%", height: "auto", display: "block", cursor: dragging ? "grabbing" : "grab", userSelect: "none" }}
            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onDoubleClick={reset}>
-        <rect width={W} height={H} fill="#101010" />
+        <rect width={W} height={H} fill="#fff" />
         <g transform={`translate(${tx},${ty}) scale(${k})`}>
           {/* graticule */}
           {Array.from({ length: 11 }, (_, i) => (i + 1) * 30 - 180).map((lon) => (
-            <line key={`m${lon}`} x1={((lon + 180) / 360) * W} x2={((lon + 180) / 360) * W} y1={0} y2={H} stroke={LINE} strokeWidth={inv} />
+            <line key={`m${lon}`} x1={((lon + 180) / 360) * W} x2={((lon + 180) / 360) * W} y1={0} y2={H} stroke={C.HAIR} strokeWidth={inv} />
           ))}
           {[-60, -30, 0, 30, 60].map((lat) => (
-            <line key={`p${lat}`} x1={0} x2={W} y1={((90 - lat) / 180) * H} y2={((90 - lat) / 180) * H} stroke={lat === 0 ? "rgba(238,238,238,0.1)" : LINE} strokeWidth={inv} />
+            <line key={`p${lat}`} x1={0} x2={W} y1={((90 - lat) / 180) * H} y2={((90 - lat) / 180) * H} stroke={C.HAIR} strokeWidth={inv} />
           ))}
           {/* the timezone band the detector says the activity fits */}
           {bandX && (
             <g>
-              <rect x={bandX[0]} y={0} width={bandX[1] - bandX[0]} height={H} fill="rgba(238,96,24,0.06)" stroke={C.ORANGE} strokeOpacity={0.4} strokeWidth={inv} strokeDasharray={`${4 * inv} ${4 * inv}`} />
-              <text x={(bandX[0] + bandX[1]) / 2} y={16 * inv} textAnchor="middle" fill={C.ORANGE} fontSize={10 * inv} fontFamily={MONO}>
-                UTC{band.offset >= 0 ? "+" : ""}{band.offset} · {band.name.toUpperCase()}
+              <rect x={bandX[0]} y={0} width={bandX[1] - bandX[0]} height={H} fill={C.LILAC} fillOpacity={0.55} />
+              <text x={(bandX[0] + bandX[1]) / 2} y={18 * inv} textAnchor="middle" fill={C.VIOLET_DEEP} fontSize={11 * inv} fontFamily={FONT} fontWeight="500">
+                UTC{band.offset >= 0 ? "+" : ""}{band.offset} · {band.name}
               </text>
             </g>
           )}
-          <path d={landPath} fill={C.LIFT} stroke={C.STROKE} strokeWidth={0.7 * inv} />
+          <path d={landPath} fill={C.LINEN} stroke={C.LINE} strokeWidth={0.7 * inv} />
 
           {/* arcs: claimed country -> activity band */}
           {plotted.map((p) => p.bandXY && (
             <path key={`a${p.nodeId}`} d={arcPath([p.x, p.y], p.bandXY)} fill="none"
-                  stroke={C.ORANGE} strokeWidth={(selected?.nodeId === p.nodeId ? 1.4 : 0.6) * inv}
-                  strokeOpacity={selected ? (selected.nodeId === p.nodeId ? 0.95 : 0.12) : 0.4}
+                  stroke={C.VIOLET} strokeWidth={(selected?.nodeId === p.nodeId ? 1.6 : 0.7) * inv}
+                  strokeOpacity={selected ? (selected.nodeId === p.nodeId ? 0.95 : 0.1) : 0.35}
                   strokeDasharray={`${3 * inv} ${3 * inv}`} />
           ))}
           {selected?.bandXY && (
             <g>
-              <circle cx={selected.bandXY[0]} cy={selected.bandXY[1]} r={3.2 * inv} fill="none" stroke={C.ORANGE} strokeWidth={1 * inv} />
-              <circle cx={selected.bandXY[0]} cy={selected.bandXY[1]} r={1.2 * inv} fill={C.ORANGE} />
+              <circle cx={selected.bandXY[0]} cy={selected.bandXY[1]} r={4 * inv} fill="none" stroke={C.VIOLET} strokeWidth={1.2 * inv} />
+              <circle cx={selected.bandXY[0]} cy={selected.bandXY[1]} r={1.6 * inv} fill={C.VIOLET} />
             </g>
           )}
 
           {/* per-country labels */}
           {byCountry.map((c) => (
-            <text key={c.code} x={c.x + 9 * inv} y={c.y - 8 * inv} fill={C.BONE} fontSize={9.5 * inv} fontFamily={MONO} opacity={selected && selected.claimedCountry !== c.code ? 0.35 : 0.9} style={{ pointerEvents: "none" }}>
-              {c.code}<tspan fill={C.GRANITE}> ×{c.n}</tspan>
+            <text key={c.code} x={c.x + 11 * inv} y={c.y - 9 * inv} fill={C.INK} fontSize={11 * inv} fontFamily={FONT} fontWeight="500"
+                  opacity={selected && selected.claimedCountry !== c.code ? 0.3 : 0.9} style={{ pointerEvents: "none" }}>
+              {c.code}<tspan fill={C.ASH} fontWeight="400"> ×{c.n}</tspan>
             </text>
           ))}
 
@@ -186,15 +186,15 @@ export default function GeoTemporalMap({ points, selectedId, onSelect }) {
             const on = selected?.nodeId === p.nodeId;
             const dim = selected && !on;
             return (
-              <g key={p.nodeId} opacity={dim ? 0.3 : 1} style={{ cursor: "pointer" }}
+              <g key={p.nodeId} opacity={dim ? 0.28 : 1} style={{ cursor: "pointer" }}
                  onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSelect?.(on ? null : p.nodeId); }}>
                 {on && !rm && (
-                  <circle key={`pulse-${selectedId}`} cx={p.x} cy={p.y} r={4 * inv} fill="none" stroke={C.ORANGE} strokeWidth={1 * inv}>
-                    <animate attributeName="r" from={4 * inv} to={14 * inv} dur="0.6s" fill="freeze" />
-                    <animate attributeName="opacity" from="0.8" to="0" dur="0.6s" fill="freeze" />
+                  <circle key={`pulse-${selectedId}`} cx={p.x} cy={p.y} r={5 * inv} fill="none" stroke={C.VIOLET} strokeWidth={1.2 * inv}>
+                    <animate attributeName="r" from={5 * inv} to={16 * inv} dur="0.7s" fill="freeze" />
+                    <animate attributeName="opacity" from="0.7" to="0" dur="0.7s" fill="freeze" />
                   </circle>
                 )}
-                <circle cx={p.x} cy={p.y} r={(on ? 5 : 3.4) * inv} fill={C.ORANGE} fillOpacity={on ? 1 : 0.85} stroke="#101010" strokeWidth={0.8 * inv} />
+                <circle cx={p.x} cy={p.y} r={(on ? 6 : 4.5) * inv} fill={on ? C.VIOLET_DEEP : C.VIOLET} stroke="#fff" strokeWidth={1.2 * inv} />
                 <title>{`${p.nodeId}\nclaims ${p.claimedCountry} (${p.countryName})\n${p.reason ?? ""}`}</title>
               </g>
             );
@@ -203,12 +203,9 @@ export default function GeoTemporalMap({ points, selectedId, onSelect }) {
       </svg>
 
       <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 6 }}>
-        <button className="btn sm" onClick={() => zoomBy(1.5)} aria-label="zoom in">+</button>
-        <button className="btn sm" onClick={() => zoomBy(1 / 1.5)} aria-label="zoom out">−</button>
+        <button className="btn sm" onClick={() => zoomBy(1.5)} aria-label="Zoom in">+</button>
+        <button className="btn sm" onClick={() => zoomBy(1 / 1.5)} aria-label="Zoom out">−</button>
         <button className="btn sm" onClick={reset}>Reset</button>
-      </div>
-      <div className="eyebrow" style={{ position: "absolute", left: 16, bottom: 12, pointerEvents: "none", color: "var(--granite)" }}>
-        <span style={{ color: C.ORANGE }}>●</span> claimed country &nbsp;<span style={{ color: C.ORANGE }}>- - -</span> arc to activity band &nbsp;· wheel zoom · drag pan · dbl-click reset
       </div>
     </div>
   );

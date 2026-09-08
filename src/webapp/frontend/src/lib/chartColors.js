@@ -1,11 +1,13 @@
-/** Factory palette for data. Orange and green are the only chromatic values and mean
- *  something: orange = elevated / signal, green = positive / low. Everything else is a
- *  neutral ramp. Kept out of charts.jsx so that file only exports components. */
+/** Kraken palette for data marks. Violet is the single brand accent; green and red
+ *  carry risk semantics only. Everything structural is a neutral slate.
+ *  Kept out of charts.jsx so that file only exports components. */
 export const CHART_COLORS = {
-  ORANGE: "#ee6018", GREEN: "#a0ca92",
-  BONE: "#eeeeee", STONE: "#b8b3b0", GRANITE: "#8a8380", GRAPHITE: "#4d4947", STROKE: "#3d3a39", LIFT: "#1d1a18",
-  NEUTRALS: ["#eeeeee", "#b8b3b0", "#8a8380", "#4d4947", "#3d3a39"],
+  VIOLET: "#7132f5", VIOLET_DEEP: "#4f24ad", LILAC: "#e4dcf9",
+  INK: "#101114", GRAPHITE: "#484b5e", SLATE: "#686b82", ASH: "#9497a9",
+  LINE: "#d4d4dc", HAIR: "#ececf1", LINEN: "#f6f5f9",
+  UP: "#08844f", DOWN: "#d11d45",
 };
 
-/** Risk score -> data colour. High = orange, medium = stone, low = green. */
-export const riskColor = (r) => (typeof r !== "number" ? "#4d4947" : r >= 0.6 ? "#ee6018" : r >= 0.4 ? "#b8b3b0" : "#a0ca92");
+/** Risk score -> data colour. High = red, medium = slate, low = green. */
+export const riskColor = (r) =>
+  (typeof r !== "number" || Number.isNaN(r) ? "#9497a9" : r >= 0.6 ? "#d11d45" : r >= 0.4 ? "#686b82" : "#08844f");

@@ -1,14 +1,14 @@
 import { motion, useReducedMotion } from "motion/react";
-import { tone } from "../lib/format";
+import { riskColor } from "../lib/chartColors";
 
-/** Card. `light` = the bone figure on the dark canvas; default = hairline-bordered dark. */
-export function Card({ title, right, light = false, panel = false, flush = false, className = "", style, children }) {
+/** White surface on the linen page. One 3%-black shadow is the whole elevation system. */
+export function Card({ title, right, flush = false, band = false, className = "", style, children }) {
   return (
-    <section className={`card${light ? " light" : ""}${panel ? " panel" : ""}${flush ? " flush" : ""} ${className}`} style={style}>
+    <section className={`card${flush ? " flush" : ""}${band ? " band" : ""}${className ? ` ${className}` : ""}`} style={style}>
       {(title || right) && (
         <div className="ch">
-          {title && <span className="eyebrow">{title}</span>}
-          {right && <span className="eyebrow" style={{ color: "var(--granite)" }}>{right}</span>}
+          {title ? <h3>{title}</h3> : <span />}
+          {right && <span className="meta">{right}</span>}
         </div>
       )}
       {children}
@@ -16,24 +16,43 @@ export function Card({ title, right, light = false, panel = false, flush = false
   );
 }
 
-/** Metric tile: ONE-WORD label above the number, optional mono sub-line. */
-export function Tile({ k, v, s, tone }) {
+/** Stat block: one-word label, then the number. No box, no divider — spacing separates. */
+export function Stat({ k, v, s, t }) {
   return (
-    <div className="tile">
+    <div className="stat">
       <div className="k">{k}</div>
-      <div className={`v${tone ? ` ${tone}` : ""}`}>{v}</div>
+      <div className={`v${t ? ` ${t}` : ""}`}>{v}</div>
       {s && <div className="s">{s}</div>}
     </div>
   );
 }
-export function Tiles({ children }) { return <div className="tiles">{children}</div>; }
+export function Stats({ sm = false, children }) { return <div className={`stats${sm ? " sm" : ""}`}>{children}</div>; }
 
-export function Tag({ t = "", children, title }) { return <span className={`tag ${t}`} title={title}>{children}</span>; }
-export function RiskTag({ score }) {
-  const ok = typeof score === "number" && !Number.isNaN(score);
-  return <Tag t={ok ? tone(score) : ""}>{ok ? score.toFixed(3) : "—"}</Tag>;
+export function PageHead({ title, sub, right }) {
+  return (
+    <div className="pagehead">
+      <div><h1>{title}</h1>{sub && <p className="lede">{sub}</p>}</div>
+      {right}
+    </div>
+  );
 }
 
+export function Section({ title, right, children }) {
+  return (
+    <div className="section">
+      {(title || right) && <div className="head"><div>{title && <h2>{title}</h2>}</div>{right}</div>}
+      {children}
+    </div>
+  );
+}
+
+export function Tag({ t = "", children, title }) { return <span className={`tag${t ? ` ${t}` : ""}`} title={title}>{children}</span>; }
+
+/** A risk score reads as a number in its semantic colour — red high, green low. */
+export function Risk({ score }) {
+  const ok = typeof score === "number" && !Number.isNaN(score);
+  return <span className="num" style={{ color: ok ? riskColor(score) : "var(--ash)" }}>{ok ? score.toFixed(3) : "—"}</span>;
+}
 export function KV({ rows }) {
   return (
     <div className="kv">
@@ -46,8 +65,8 @@ export function KV({ rows }) {
   );
 }
 
-/** Proportional bar. Grows on transform: scaleX from the left, never width. */
-export function Bar({ frac, color = "var(--bone)" }) {
+/** Proportional bar for inside a table cell. Grows on transform, never width. */
+export function Bar({ frac, color = "var(--violet)" }) {
   const rm = useReducedMotion();
   const f = Math.max(0, Math.min(1, Number(frac) || 0));
   return (
@@ -57,25 +76,11 @@ export function Bar({ frac, color = "var(--bone)" }) {
   );
 }
 
+export function Scroll({ max = 420, children }) { return <div className="scroll" style={{ maxHeight: max }}>{children}</div>; }
 export function Empty({ children }) { return <div className="empty">{children}</div>; }
-export function ErrorCard({ error }) { return <Card title="unavailable"><div className="note orange">{String(error)}</div></Card>; }
+export function ErrorCard({ error }) { return <Card title="Unavailable"><p className="note">{String(error)}</p></Card>; }
 
-/** Section wrapper: eyebrow + optional h1, then content with the system's spacing. */
-export function Section({ eyebrow, title, right, children }) {
-  return (
-    <div className="section">
-      {(eyebrow || title || right) && (
-        <div className="head">
-          <div>{eyebrow && <div className="eyebrow dot" style={{ marginBottom: title ? 12 : 0 }}>{eyebrow}</div>}{title && <h1>{title}</h1>}</div>
-          {right}
-        </div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-/** Mount reveal: opacity + 6px only, 0.2s mechanical easing. Respects reduced motion. */
+/** Mount reveal: opacity + 6px, 0.2s. Respects reduced motion. */
 export function Reveal({ children, delay = 0, style, className }) {
   const rm = useReducedMotion();
   return (

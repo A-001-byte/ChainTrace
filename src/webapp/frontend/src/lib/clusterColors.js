@@ -1,13 +1,13 @@
-// Cluster ids are nominal labels. The Factory system allows no accent beyond signal orange
-// and metric green (both reserved for data state), so clusters take a NEUTRAL luminance
-// ramp: distinct enough to separate neighbours in a graph, never mistaken for a status.
-const RAMP = ["#4d4947", "#6b6663", "#8a8380", "#a29c98", "#b8b3b0", "#d3cfcc", "#eeeeee"];
+// Cluster ids are nominal labels, never a status. On the light canvas they take a
+// violet-to-slate ramp: separable against white, and clearly distinct from the
+// red/green that carry risk meaning.
+const RAMP = ["#7132f5", "#2e3350", "#686b82", "#4f24ad", "#484b5e", "#9497a9", "#202333"];
 
-/** Stable neutral tone for a cluster id; slate for unclustered / context. */
+/** Stable tone for a cluster id; hairline grey for unclustered / context. */
 export function clusterColor(clusterId) {
-  if (clusterId === null || clusterId === undefined) return "#3d3a39";
+  if (clusterId === null || clusterId === undefined) return "#d4d4dc";
   const n = Number(clusterId);
-  if (Number.isNaN(n)) return "#3d3a39";
+  if (Number.isNaN(n)) return "#d4d4dc";
   // spread ids across the ramp with a multiplicative hash so adjacent ids differ
   return RAMP[((n * 7) + (n >> 3)) % RAMP.length];
 }

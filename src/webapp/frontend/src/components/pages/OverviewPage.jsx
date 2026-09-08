@@ -1,57 +1,52 @@
 import { useMemo } from "react";
 import { useStats } from "../../hooks/useStats";
 import { useAlerts } from "../../hooks/useAlerts";
+import { useAplSummary } from "../../hooks/useAplSummary";
 import { clusterColor } from "../../lib/clusterColors";
-import { Panel, Stat, Bar, RiskTag, Empty, ErrorPanel, Reveal, num, short } from "../ui";
+import { Panel, Stat, RiskTag, Tag, Empty, ErrorPanel, Reveal, num, short, pct } from "../ui";
+import { RiskHistogram, ConfAnomScatter, ClusterBars, IntentDonut, GeoMismatchBars } from "../charts";
 
 export default function OverviewPage({ onOpen, onNav }) {
   const { data: s, error, loading } = useStats();
   const { data: a } = useAlerts();
-  const rows = Array.isArray(a?.rows) ? a.rows : [];
-
-  const top = useMemo(
-    () => [...rows].sort((x, y) => (y.risk_score ?? 0) - (x.risk_score ?? 0)).slice(0, 12),
-    [rows],
-  );
-  const clusters = useMemo(() => {
-    const m = new Map();
-    for (const r of rows) {
-      if (r.cluster_id === null || r.cluster_id === undefined) continue;
-      const c = m.get(r.cluster_id) ?? { id: r.cluster_id, n: 0, max: 0 };
-      c.n += 1; c.max = Math.max(c.max, r.risk_score ?? 0); m.set(r.cluster_id, c);
-    }
-    return [...m.values()].sort((x, y) => y.n - x.n || y.max - x.max).slice(0, 10);
-  }, [rows]);
+  const { data: apl } = useAplSummary();
+  const rows = useMemo(() => (Array.isArray(a?.rows) ? a.rows : []), [a]);
+  const top = useMemo(() => [...rows].sort((x, y) => (y.risk_score ?? 0) - (x.risk_score ?? 0)).slice(0, 10), [rows]);
   const geoFlagged = rows.filter((r) => r.geo_temporal_flag === true).length;
+  const ov = apl?.headline_stats?.ranked_alerts_overlap;
+  const ex = apl?.headline_stats?.exoneration_by_threshold?.find((r) => r.threshold === apl.headline_stats.default_threshold);
 
   if (loading) return <Empty>loading overview…</Empty>;
   if (error) return <ErrorPanel error={error} />;
-
   const tiers = s.risk_tier_counts;
-  const tot = (tiers.high + tiers.medium + tiers.low) || 1;
-  const maxC = clusters[0]?.n ?? 1;
 
   return (
     <>
       <Reveal>
         <Panel flush>
           <div className="statrow">
-            <Stat k="flagged" v={num(s.total_flagged)} s={`${tiers.high} hi · ${tiers.medium} md · ${tiers.low} lo`} />
-            <Stat k="high risk" v={num(tiers.high)} s={`risk_score ≥ ${s.risk_tier_thresholds.high}`} />
-            <Stat k="wallets" v={num(s.node_type_breakdown?.wallet ?? 0)} />
-            <Stat k="transactions" v={num(s.node_type_breakdown?.tx ?? 0)} />
-            <Stat k="avg risk" v={Number(s.avg_risk_score).toFixed(3)} />
-            <Stat k="geo-temporal" v={num(geoFlagged)} s="claimed country ≠ activity hours" />
-            <Stat k="tx scanned" v={num(s.total_transactions)} size="md" s={`${s.distinct_clusters} clusters among flagged`} />
+            <Stat k="entities flagged" v={<span className="acc">{num(s.total_flagged)}</span>} s={`${tiers.high} hi · ${tiers.medium} md · ${tiers.low} lo`} />
+            <Stat k="high risk" v={<span className="hi">{num(tiers.high)}</span>} s={`risk_score ≥ ${s.risk_tier_thresholds.high}`} />
+            <Stat k="avg risk" v={Number(s.avg_risk_score).toFixed(3)} s={`${s.flagged_avg_confidence_pct}% avg confidence`} />
+            <Stat k="clusters" v={num(s.distinct_clusters)} s="Louvain, among flagged" />
+            <Stat k="geo-temporal" v={<span className="md-c">{num(geoFlagged)}</span>} s="claimed country ≠ activity hours" />
+            <Stat k="zero custody" v={<span className="lo">{ov ? `${ov.n_zero_agency}/${ov.n_wallet_alerts}` : "—"}</span>} s={ov ? `${ov.n_never_spent} never spent · α = 0` : "provenance not built"} />
+            <Stat k="tx scanned" v={num(s.total_transactions)} size="md" s={`${num(s.node_type_breakdown?.wallet ?? 0)} wallets · ${num(s.node_type_breakdown?.tx ?? 0)} tx flagged`} />
           </div>
         </Panel>
       </Reveal>
 
+      <div className="grid g3">
+        <Reveal delay={0.04}><Panel title="risk score distribution" right="histogram · colour = tier"><RiskHistogram rows={rows} /></Panel></Reveal>
+        <Reveal delay={0.08}><Panel title="confidence × anomaly" right="size = risk · click = open"><ConfAnomScatter rows={rows} onPick={onOpen} /></Panel></Reveal>
+        <Reveal delay={0.12}><Panel title="intent archetypes" right="rule-based, categorical"><IntentDonut rows={rows} /></Panel></Reveal>
+      </div>
+
       <div className="cols">
-        <Reveal delay={0.05} style={{ flex: 3 }}>
+        <Reveal delay={0.16} style={{ flex: 3 }}>
           <Panel title="highest-risk entities" right={<button className="btn" onClick={() => onNav("alerts")}>all alerts</button>} flush>
             <table className="tbl">
-              <thead><tr><th>#</th><th>node_id</th><th>type</th><th>cluster</th><th className="r">risk</th><th>intent</th><th>geo</th></tr></thead>
+              <thead><tr><th>#</th><th>node_id</th><th>type</th><th>cluster</th><th className="r">risk</th><th>intent</th><th>signals</th></tr></thead>
               <tbody>
                 {top.map((r, i) => (
                   <tr key={r.node_id} className="row" onClick={() => onOpen(r.node_id)}>
@@ -60,42 +55,31 @@ export default function OverviewPage({ onOpen, onNav }) {
                     <td>{r.node_type}</td>
                     <td style={{ color: clusterColor(r.cluster_id) }}>{r.cluster_id ?? "—"}</td>
                     <td className="r"><RiskTag score={r.risk_score} /></td>
-                    <td className="trunc">{r.intent_label ?? "—"}</td>
-                    <td>{r.geo_temporal_flag ? <span className="md">MISMATCH</span> : <span className="mute">—</span>}</td>
+                    <td className="trunc">{r.intent_label ? <Tag t="vi">{r.intent_label}</Tag> : "—"}</td>
+                    <td>{r.geo_temporal_flag ? <Tag t="md">GEO</Tag> : <span className="mute">—</span>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </Panel>
         </Reveal>
-
         <div style={{ flex: 2, display: "flex", flexDirection: "column", gap: "var(--gap)" }}>
-          <Reveal delay={0.1}>
-            <Panel title="risk distribution" right={`${num(s.total_flagged)} flagged`}>
-              {[["high", tiers.high, "var(--risk-hi)"], ["medium", tiers.medium, "var(--risk-md)"], ["low", tiers.low, "var(--risk-lo)"]].map(([k, n, c], i) => (
-                <div key={k} style={{ display: "grid", gridTemplateColumns: "56px 1fr 44px 44px", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                  <span className="mute" style={{ fontSize: "var(--fs-xs)" }}>{k}</span>
-                  <Bar frac={n / tot} color={c} delay={i * 0.06} />
-                  <span className="r fg" style={{ textAlign: "right" }}>{n}</span>
-                  <span className="mute" style={{ textAlign: "right", fontSize: "var(--fs-xs)" }}>{((n / tot) * 100).toFixed(0)}%</span>
-                </div>
-              ))}
-            </Panel>
-          </Reveal>
-          <Reveal delay={0.15}>
-            <Panel title="cluster concentration" right={`${clusters.length} shown`}>
-              {clusters.length === 0 ? <div className="note">no cluster assignments</div> : clusters.map((c, i) => (
-                <div key={c.id} style={{ display: "grid", gridTemplateColumns: "48px 1fr 32px", gap: 8, alignItems: "center", marginBottom: 3 }}>
-                  <span style={{ color: clusterColor(c.id), fontSize: "var(--fs-xs)" }}>c{c.id}</span>
-                  <Bar frac={c.n / maxC} color={clusterColor(c.id)} delay={i * 0.04} />
-                  <span className="dim" style={{ textAlign: "right", fontSize: "var(--fs-xs)" }}>{c.n}</span>
-                </div>
-              ))}
-              <div className="note" style={{ marginTop: 6 }}>Louvain communities among flagged entities — concentration indicates coordinated rather than isolated activity.</div>
-            </Panel>
-          </Reveal>
+          <Reveal delay={0.2}><Panel title="cluster concentration" right="members per cluster"><ClusterBars rows={rows} /></Panel></Reveal>
+          <Reveal delay={0.24}><Panel title="geo-temporal by claimed country" right={<button className="btn" onClick={() => onNav("geo")}>map</button>}><GeoMismatchBars rows={rows} /></Panel></Reveal>
         </div>
       </div>
+
+      {ex && (
+        <Reveal delay={0.28}>
+          <Panel title="adversarial provenance — headline" right={<button className="btn" onClick={() => onNav("provenance")}>details</button>} flush>
+            <div className="statrow">
+              <Stat k="of haircut-flagged, zero custody agency" v={<span className="acc">{pct(ex.pct_zero_agency)}</span>} s={`${num(ex.n_zero_agency)} of ${num(ex.n_flagged_baseline)} at threshold ${apl.headline_stats.default_threshold}`} size="md" />
+              <Stat k="never spent at all" v={pct(ex.pct_never_spent)} s={`${num(ex.n_never_spent)} never a transaction input — a set difference, not a model output`} size="md" />
+              <Stat k="clusters median CFI" v={apl.headline_stats.fragility ? apl.headline_stats.fragility.cfi_median.toFixed(2) : "—"} s="share of an entity resting on single-witness merges" size="md" />
+            </div>
+          </Panel>
+        </Reveal>
+      )}
     </>
   );
 }
